@@ -78,6 +78,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setTags([])
         setMetas([])
         setMovimientos([])
+        setLoading(false)
         return
       }
 
