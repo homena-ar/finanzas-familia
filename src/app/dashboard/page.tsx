@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useData } from '@/hooks/useData'
 import { useAuth } from '@/hooks/useAuth'
 import { formatMoney, getMonthName, fetchDolar, getTagClass, getMonthKey } from '@/lib/utils'
-import { Download, TrendingUp, CreditCard, Receipt, Pin, DollarSign, TrendingDown, ArrowRight, Calendar } from 'lucide-react'
+import { Download, TrendingUp, CreditCard, Receipt, Pin, DollarSign, Calendar, X, ChevronRight } from 'lucide-react'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
 import { Doughnut } from 'react-chartjs-2'
 
@@ -17,6 +17,7 @@ export default function DashboardPage() {
     getGastosMes, getImpuestosMes
   } = useData()
   const [dolar, setDolar] = useState(1050)
+  const [showEndingModal, setShowEndingModal] = useState(false)
 
   useEffect(() => {
     fetchDolar().then(setDolar)
@@ -91,7 +92,9 @@ export default function DashboardPage() {
   // DIFERENCIAS
   const diferenciaARS = totalARS - proximoARS
   const diferenciaUSD = totalUSD - proximoUSD
-  const diferenciaTotal = (totalARS + totalImpuestos + (totalUSD * dolar)) - (proximoARS + proximoImpuestos + (proximoUSD * dolar))
+  const totalActual = totalARS + totalImpuestos + (totalUSD * dolar)
+  const totalProximo = proximoARS + proximoImpuestos + (proximoUSD * dolar)
+  const diferenciaTotal = totalActual - totalProximo
 
   // Budget check (solo si está habilitado)
   const budgetARS = profile?.budget_ars || 0
@@ -153,7 +156,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header - CORREGIDO: usa currentMonth */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Resumen</h1>
@@ -225,81 +228,61 @@ export default function DashboardPage() {
           <h3 className="font-bold text-lg">Proyección {getMonthName(nextMonth)}</h3>
         </div>
 
-        {/* Gastos que TERMINAN este mes */}
-        {gastosTerminan.length > 0 && (
-          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mb-4">
-            <div className="font-bold text-emerald-800 mb-3">✅ Gastos que terminan este mes ({gastosTerminan.length})</div>
-            <div className="space-y-2 mb-3 max-h-32 overflow-y-auto">
-              {gastosTerminan.map(g => {
-                const monto = g.cuotas > 1 ? g.monto / g.cuotas : g.monto
-                return (
-                  <div key={g.id} className="flex justify-between text-sm bg-white rounded-lg p-2">
-                    <span>{g.descripcion}</span>
-                    <span className={`font-semibold ${g.moneda === 'USD' ? 'text-emerald-600' : ''}`}>
-                      {formatMoney(monto, g.moneda)}
-                    </span>
-                  </div>
-                )
-              })}
+        <div className="grid md:grid-cols-3 gap-4 mb-4">
+          {/* Gastos que terminan - Clickeable para abrir modal */}
+          <div 
+            className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 cursor-pointer hover:bg-emerald-100 transition"
+            onClick={() => gastosTerminan.length > 0 && setShowEndingModal(true)}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-emerald-700 font-bold text-sm">✅ Terminan este mes</span>
+              {gastosTerminan.length > 0 && <ChevronRight className="w-4 h-4 text-emerald-600" />}
             </div>
-            <div className="grid grid-cols-2 gap-4 pt-3 border-t border-emerald-200">
-              <div className="text-center">
-                <div className="text-xs text-emerald-600">Ahorro ARS</div>
-                <div className="font-bold text-emerald-700">{formatMoney(terminanARS)}</div>
-              </div>
-              <div className="text-center">
-                <div className="text-xs text-emerald-600">Ahorro USD</div>
-                <div className="font-bold text-emerald-700">{formatMoney(terminanUSD, 'USD')}</div>
-              </div>
+            <div className="text-2xl font-bold text-emerald-700">{gastosTerminan.length}</div>
+            <div className="text-xs text-emerald-600 mt-1">
+              {formatMoney(terminanARS)} + {formatMoney(terminanUSD, 'USD')}
             </div>
           </div>
-        )}
 
-        {/* Gastos FIJOS que continúan */}
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
-          <div className="font-bold text-blue-800 mb-3">📌 Gastos fijos próximo mes</div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="text-center">
-              <div className="text-xs text-blue-600">Fijos ARS</div>
-              <div className="font-bold text-blue-700">{formatMoney(fijosSiguenARS)}</div>
+          {/* Gastos fijos que siguen */}
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+            <div className="text-blue-700 font-bold text-sm mb-2">📌 Fijos continúan</div>
+            <div className="text-lg font-bold text-blue-700">{formatMoney(fijosSiguenARS)}</div>
+            <div className="text-xs text-blue-600">{formatMoney(fijosSiguenUSD, 'USD')}</div>
+          </div>
+
+          {/* Diferencia */}
+          <div className={`rounded-xl p-4 ${diferenciaTotal > 0 ? 'bg-emerald-50 border border-emerald-200' : 'bg-red-50 border border-red-200'}`}>
+            <div className="text-slate-600 font-bold text-sm mb-2">📊 Diferencia</div>
+            <div className={`text-lg font-bold ${diferenciaTotal > 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+              {diferenciaTotal > 0 ? '-' : '+'}{formatMoney(Math.abs(diferenciaTotal))}
             </div>
-            <div className="text-center">
-              <div className="text-xs text-blue-600">Fijos USD</div>
-              <div className="font-bold text-blue-700">{formatMoney(fijosSiguenUSD, 'USD')}</div>
+            <div className={`text-xs ${diferenciaUSD >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+              {diferenciaUSD >= 0 ? '-' : '+'}{formatMoney(Math.abs(diferenciaUSD), 'USD')}
             </div>
           </div>
         </div>
 
-        {/* Comparación y Diferencia */}
-        <div className="bg-slate-100 rounded-xl p-4">
-          <div className="font-bold text-slate-700 mb-3">📊 Comparación de gastos</div>
-          <div className="grid grid-cols-3 gap-3 mb-3">
-            <div className="bg-white rounded-lg p-3 text-center">
-              <div className="text-xs text-slate-500">Este mes</div>
-              <div className="font-bold">{formatMoney(totalARS + totalImpuestos)}</div>
+        {/* Comparación detallada */}
+        <div className="bg-slate-50 rounded-xl p-4">
+          <div className="grid grid-cols-2 gap-4 text-center">
+            <div>
+              <div className="text-xs text-slate-500 uppercase font-semibold">Este mes ({getMonthName(currentMonth).split(' ')[0]})</div>
+              <div className="text-xl font-bold mt-1">{formatMoney(totalActual)}</div>
               <div className="text-xs text-emerald-600">{formatMoney(totalUSD, 'USD')}</div>
             </div>
-            <div className="bg-white rounded-lg p-3 text-center">
-              <div className="text-xs text-slate-500">Próximo mes</div>
-              <div className="font-bold">{formatMoney(proximoARS + proximoImpuestos)}</div>
+            <div>
+              <div className="text-xs text-slate-500 uppercase font-semibold">Próximo ({getMonthName(nextMonth).split(' ')[0]})</div>
+              <div className="text-xl font-bold mt-1">{formatMoney(totalProximo)}</div>
               <div className="text-xs text-emerald-600">{formatMoney(proximoUSD, 'USD')}</div>
             </div>
-            <div className={`rounded-lg p-3 text-center ${diferenciaTotal > 0 ? 'bg-emerald-100' : 'bg-red-100'}`}>
-              <div className="text-xs text-slate-500">Diferencia</div>
-              <div className={`font-bold ${diferenciaTotal > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                {diferenciaTotal > 0 ? '-' : '+'}{formatMoney(Math.abs(diferenciaTotal))}
-              </div>
-              <div className={`text-xs ${diferenciaUSD > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                {diferenciaUSD > 0 ? '-' : '+'}{formatMoney(Math.abs(diferenciaUSD), 'USD')}
-              </div>
-            </div>
           </div>
-          <div className="text-xs text-slate-500 text-center">
+          <div className="text-center text-sm text-slate-500 mt-3 pt-3 border-t border-slate-200">
             {diferenciaTotal > 0 
-              ? `Vas a gastar ${formatMoney(diferenciaTotal)} menos el próximo mes 🎉` 
+              ? `🎉 Vas a gastar ${formatMoney(diferenciaTotal)} menos` 
               : diferenciaTotal < 0 
-                ? `Vas a gastar ${formatMoney(Math.abs(diferenciaTotal))} más el próximo mes ⚠️`
-                : 'Mismo gasto el próximo mes'
+                ? `⚠️ Vas a gastar ${formatMoney(Math.abs(diferenciaTotal))} más`
+                : '➡️ Mismo gasto proyectado'
             }
           </div>
         </div>
@@ -346,7 +329,7 @@ export default function DashboardPage() {
           </div>
           <div className="text-xs text-slate-500 font-semibold uppercase">Fijos</div>
           <div className="text-xl font-bold text-purple-600">{formatMoney(totalFijos)}</div>
-          <div className="text-xs text-slate-500">{formatMoney(totalFijosUSD, 'USD')}</div>
+          {totalFijosUSD > 0 && <div className="text-xs text-slate-500">{formatMoney(totalFijosUSD, 'USD')}</div>}
         </div>
       </div>
 
@@ -450,6 +433,56 @@ export default function DashboardPage() {
           </table>
         </div>
       </div>
+
+      {/* MODAL: Gastos que terminan */}
+      {showEndingModal && (
+        <div className="modal-overlay" onClick={() => setShowEndingModal(false)}>
+          <div className="modal max-w-lg" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-emerald-50">
+              <h3 className="font-bold text-lg text-emerald-800">✅ Gastos que terminan este mes</h3>
+              <button onClick={() => setShowEndingModal(false)} className="p-1 hover:bg-emerald-100 rounded">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 max-h-96 overflow-y-auto">
+              <p className="text-sm text-slate-500 mb-4">
+                Estos gastos no aparecerán en {getMonthName(nextMonth)}:
+              </p>
+              <div className="space-y-2">
+                {gastosTerminan.map(g => {
+                  const monto = g.cuotas > 1 ? g.monto / g.cuotas : g.monto
+                  return (
+                    <div key={g.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
+                      <div>
+                        <div className="font-semibold">{g.descripcion}</div>
+                        <div className="text-xs text-slate-500">
+                          {g.tarjeta?.nombre || 'Sin tarjeta'} • {g.categoria?.nombre || 'Sin categoría'}
+                          {g.cuotas > 1 && ` • Última cuota`}
+                        </div>
+                      </div>
+                      <div className={`font-bold ${g.moneda === 'USD' ? 'text-emerald-600' : ''}`}>
+                        {formatMoney(monto, g.moneda)}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+            <div className="p-4 bg-emerald-50 border-t border-emerald-200">
+              <div className="grid grid-cols-2 gap-4 text-center">
+                <div>
+                  <div className="text-xs text-emerald-600 font-semibold">Total ARS</div>
+                  <div className="text-lg font-bold text-emerald-700">{formatMoney(terminanARS)}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-emerald-600 font-semibold">Total USD</div>
+                  <div className="text-lg font-bold text-emerald-700">{formatMoney(terminanUSD, 'USD')}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

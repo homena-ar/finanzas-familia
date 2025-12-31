@@ -2,9 +2,18 @@
 
 import { useState } from 'react'
 import { useData } from '@/hooks/useData'
-import { getCardTypeClass } from '@/lib/utils'
 import { Plus, Edit2, Trash2, X, CreditCard } from 'lucide-react'
 import { Tarjeta } from '@/types'
+
+function getCardGradient(tipo: string): string {
+  const gradients: Record<string, string> = {
+    'visa': 'background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
+    'mastercard': 'background: linear-gradient(135deg, #991b1b 0%, #ef4444 100%)',
+    'amex': 'background: linear-gradient(135deg, #065f46 0%, #10b981 100%)',
+    'other': 'background: linear-gradient(135deg, #374151 0%, #6b7280 100%)'
+  }
+  return gradients[tipo] || gradients.other
+}
 
 export default function TarjetasPage() {
   const { tarjetas, addTarjeta, updateTarjeta, deleteTarjeta, loading } = useData()
@@ -74,7 +83,7 @@ export default function TarjetasPage() {
   }
 
   const handleDelete = async (id: string) => {
-    if (confirm('¿Eliminar esta tarjeta?')) {
+    if (confirm('¿Eliminar esta tarjeta? Los gastos asociados quedarán sin tarjeta.')) {
       const { error } = await deleteTarjeta(id)
       if (error) {
         alert('Error al eliminar: ' + error.message)
@@ -113,28 +122,62 @@ export default function TarjetasPage() {
             </button>
           </div>
         ) : tarjetas.map(t => (
-          <div key={t.id} className={`${getCardTypeClass(t.tipo)} rounded-2xl p-5 text-white min-h-[160px] relative`}>
-            <div className="absolute top-4 right-4 flex gap-2">
-              <button onClick={() => openEdit(t)} className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center hover:bg-white/30">
+          <div 
+            key={t.id} 
+            className="rounded-2xl p-5 text-white min-h-[180px] relative shadow-lg"
+            style={{
+              background: t.tipo === 'visa' 
+                ? 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)'
+                : t.tipo === 'mastercard'
+                  ? 'linear-gradient(135deg, #991b1b 0%, #ef4444 100%)'
+                  : t.tipo === 'amex'
+                    ? 'linear-gradient(135deg, #065f46 0%, #10b981 100%)'
+                    : 'linear-gradient(135deg, #374151 0%, #6b7280 100%)'
+            }}
+          >
+            {/* Decorative circles */}
+            <div className="absolute top-4 right-4 opacity-20">
+              <div className="w-16 h-16 rounded-full border-4 border-white"></div>
+            </div>
+            <div className="absolute top-8 right-8 opacity-10">
+              <div className="w-12 h-12 rounded-full border-4 border-white"></div>
+            </div>
+            
+            {/* Actions */}
+            <div className="absolute top-3 right-3 flex gap-1 z-10">
+              <button onClick={() => openEdit(t)} className="w-8 h-8 bg-white/20 backdrop-blur rounded-lg flex items-center justify-center hover:bg-white/30 transition">
                 <Edit2 className="w-4 h-4" />
               </button>
-              <button onClick={() => handleDelete(t.id)} className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center hover:bg-white/30">
+              <button onClick={() => handleDelete(t.id)} className="w-8 h-8 bg-white/20 backdrop-blur rounded-lg flex items-center justify-center hover:bg-white/30 transition">
                 <Trash2 className="w-4 h-4" />
               </button>
             </div>
             
-            <div className="text-xs font-bold uppercase opacity-70 mb-3">
-              {t.tipo.toUpperCase()}
-            </div>
-            <div className="text-lg font-bold mb-1">{t.nombre}</div>
-            <div className="text-sm opacity-60 font-mono">
-              {t.banco} {t.digitos && `•••• ${t.digitos}`}
-            </div>
-            {t.cierre && (
-              <div className="text-sm opacity-60 mt-3">
-                Cierre: día {t.cierre}
+            {/* Card content */}
+            <div className="relative z-10">
+              <div className="text-xs font-bold uppercase tracking-wider opacity-80 mb-4">
+                {t.tipo === 'visa' ? '💳 VISA' : t.tipo === 'mastercard' ? '💳 MASTERCARD' : t.tipo === 'amex' ? '💳 AMEX' : '💳 TARJETA'}
               </div>
-            )}
+              
+              <div className="text-xl font-bold mb-2">{t.nombre}</div>
+              
+              <div className="text-sm opacity-70 font-mono tracking-widest mb-4">
+                •••• •••• •••• {t.digitos || '****'}
+              </div>
+              
+              <div className="flex justify-between items-end">
+                <div>
+                  <div className="text-xs opacity-60 uppercase">Banco</div>
+                  <div className="font-semibold">{t.banco || '-'}</div>
+                </div>
+                {t.cierre && (
+                  <div className="text-right">
+                    <div className="text-xs opacity-60 uppercase">Cierre</div>
+                    <div className="font-semibold">Día {t.cierre}</div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         ))}
       </div>
@@ -210,6 +253,25 @@ export default function TarjetasPage() {
                   />
                 </div>
               </div>
+              
+              {/* Preview */}
+              <div 
+                className="rounded-xl p-4 text-white text-sm"
+                style={{
+                  background: form.tipo === 'visa' 
+                    ? 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)'
+                    : form.tipo === 'mastercard'
+                      ? 'linear-gradient(135deg, #991b1b 0%, #ef4444 100%)'
+                      : form.tipo === 'amex'
+                        ? 'linear-gradient(135deg, #065f46 0%, #10b981 100%)'
+                        : 'linear-gradient(135deg, #374151 0%, #6b7280 100%)'
+                }}
+              >
+                <div className="text-xs opacity-70 mb-1">Vista previa</div>
+                <div className="font-bold">{form.nombre || 'Nombre de tarjeta'}</div>
+                <div className="font-mono text-xs opacity-70">•••• {form.digitos || '****'}</div>
+              </div>
+              
               <button 
                 onClick={handleSave} 
                 disabled={saving}
