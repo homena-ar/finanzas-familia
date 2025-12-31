@@ -147,9 +147,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     console.log('🔧 [updateProfile] Starting update...', data)
 
-    // Create a timeout promise that will reload the page if query hangs
+    // Create a timeout that will reject after 5 seconds
+    let timeoutId: NodeJS.Timeout
     const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => {
+      timeoutId = setTimeout(() => {
         console.error('❌ [updateProfile] TIMEOUT - Query hung for 5 seconds, forcing page reload')
         reject(new Error('Query timeout'))
       }, 5000)
@@ -164,12 +165,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const { error } = await Promise.race([queryPromise, timeoutPromise]) as any
 
+      // Query completed successfully - clear the timeout!
+      clearTimeout(timeoutId)
       console.log('✅ [updateProfile] Completed successfully')
 
       if (!error) {
         setProfile(prev => prev ? { ...prev, ...data } : null)
       }
     } catch (err: any) {
+      // Clear timeout in case of error too
+      if (timeoutId) clearTimeout(timeoutId)
+
       if (err.message === 'Query timeout') {
         console.error('💥 [updateProfile] Supabase client is broken - clearing storage and reloading')
         localStorage.clear()
