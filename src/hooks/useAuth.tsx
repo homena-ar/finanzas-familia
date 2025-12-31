@@ -132,8 +132,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const hideDuration = now - hideTime
         console.log('👁️ [useAuth] Tab visible again - was hidden for', Math.round(hideDuration/1000), 'seconds')
 
-        // If was hidden for more than 10 seconds, check if Supabase client is still working
-        if (hideDuration > 10000) {
+        // If was hidden for more than 3 seconds, check if Supabase client is still working
+        if (hideDuration > 3000) {
           console.log('👁️ [useAuth] Testing Supabase client health...')
 
           // Try a simple query with a 3-second timeout
@@ -149,12 +149,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .catch((error) => {
               console.log('👁️ [useAuth] ❌ Supabase client is broken - forcing logout and reload')
               console.error('Health check error:', error)
-              // Client is broken, force logout and reload
-              supabase.auth.signOut().then(() => {
-                localStorage.clear()
-                sessionStorage.clear()
-                window.location.reload()
-              })
+              // Client is broken - don't wait for signOut (it might hang too)
+              // Just clear everything and reload immediately
+              localStorage.clear()
+              sessionStorage.clear()
+              console.log('👁️ [useAuth] Storage cleared - reloading now...')
+              window.location.reload()
             })
         } else {
           console.log('👁️ [useAuth] Short tab switch - no health check needed')
