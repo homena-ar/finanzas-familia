@@ -26,7 +26,8 @@ export default function AhorrosPage() {
 
   const ahorroPesos = profile?.ahorro_pesos || 0
   const ahorroUsd = profile?.ahorro_usd || 0
-  const patrimonio = ahorroPesos + (ahorroUsd * dolar)
+  const patrimonioEnPesos = ahorroPesos + (ahorroUsd * dolar)
+  const patrimonioEnUsd = (ahorroPesos / dolar) + ahorroUsd
 
   const handleAddSavings = async (tipo: 'pesos' | 'usd', isAdd: boolean) => {
     const input = tipo === 'pesos' ? inputPesos : inputUsd
@@ -102,14 +103,32 @@ export default function AhorrosPage() {
         <p className="text-slate-500">Construí tu futuro 🚀</p>
       </div>
 
-      {/* Patrimonio Hero */}
+      {/* Patrimonio Hero - SEPARADO */}
       <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500 rounded-2xl p-6 text-white">
-        <div className="text-sm opacity-80 mb-1">💰 Patrimonio Total</div>
-        <div className="text-3xl font-bold">
-          {formatMoney(patrimonio)}
-          <span className="text-lg font-normal opacity-80 ml-2">
-            ({formatMoney(ahorroUsd, 'USD')})
-          </span>
+        <div className="text-sm opacity-80 mb-4">💰 Patrimonio Total</div>
+        
+        {/* Valores separados */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+          <div className="bg-white/10 rounded-xl p-4">
+            <div className="text-sm opacity-80">Pesos</div>
+            <div className="text-xl font-bold">{formatMoney(ahorroPesos)}</div>
+          </div>
+          <div className="bg-white/10 rounded-xl p-4">
+            <div className="text-sm opacity-80">Dólares</div>
+            <div className="text-xl font-bold">{formatMoney(ahorroUsd, 'USD')}</div>
+          </div>
+          <div className="bg-white/20 rounded-xl p-4">
+            <div className="text-sm opacity-80">Total en $</div>
+            <div className="text-xl font-bold">{formatMoney(patrimonioEnPesos)}</div>
+          </div>
+          <div className="bg-white/20 rounded-xl p-4">
+            <div className="text-sm opacity-80">Total en USD</div>
+            <div className="text-xl font-bold">{formatMoney(patrimonioEnUsd, 'USD')}</div>
+          </div>
+        </div>
+        
+        <div className="text-xs opacity-60 text-center">
+          Cotización: {formatMoney(dolar)} por dólar
         </div>
       </div>
 
@@ -141,14 +160,18 @@ export default function AhorrosPage() {
           </div>
           {/* Historial */}
           <div className="mt-4 pt-4 border-t border-slate-200 max-h-24 overflow-y-auto">
-            {movimientos.filter(m => m.tipo === 'pesos').slice(0, 5).map(m => (
-              <div key={m.id} className="flex justify-between text-sm py-1">
-                <span className="text-slate-500">{new Date(m.fecha).toLocaleDateString('es-AR')}</span>
-                <span className={m.monto > 0 ? 'text-emerald-600' : 'text-red-600'}>
-                  {m.monto > 0 ? '+' : ''}{formatMoney(m.monto)}
-                </span>
-              </div>
-            ))}
+            {movimientos.filter(m => m.tipo === 'pesos').length > 0 ? (
+              movimientos.filter(m => m.tipo === 'pesos').slice(0, 5).map(m => (
+                <div key={m.id} className="flex justify-between text-sm py-1">
+                  <span className="text-slate-500">{new Date(m.fecha).toLocaleDateString('es-AR')}</span>
+                  <span className={m.monto > 0 ? 'text-emerald-600' : 'text-red-600'}>
+                    {m.monto > 0 ? '+' : ''}{formatMoney(m.monto)}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <p className="text-slate-400 text-sm text-center">Sin movimientos</p>
+            )}
           </div>
         </div>
 
@@ -178,14 +201,18 @@ export default function AhorrosPage() {
           </div>
           {/* Historial */}
           <div className="mt-4 pt-4 border-t border-slate-200 max-h-24 overflow-y-auto">
-            {movimientos.filter(m => m.tipo === 'usd').slice(0, 5).map(m => (
-              <div key={m.id} className="flex justify-between text-sm py-1">
-                <span className="text-slate-500">{new Date(m.fecha).toLocaleDateString('es-AR')}</span>
-                <span className={m.monto > 0 ? 'text-emerald-600' : 'text-red-600'}>
-                  {m.monto > 0 ? '+' : ''}{formatMoney(m.monto, 'USD')}
-                </span>
-              </div>
-            ))}
+            {movimientos.filter(m => m.tipo === 'usd').length > 0 ? (
+              movimientos.filter(m => m.tipo === 'usd').slice(0, 5).map(m => (
+                <div key={m.id} className="flex justify-between text-sm py-1">
+                  <span className="text-slate-500">{new Date(m.fecha).toLocaleDateString('es-AR')}</span>
+                  <span className={m.monto > 0 ? 'text-emerald-600' : 'text-red-600'}>
+                    {m.monto > 0 ? '+' : ''}{formatMoney(m.monto, 'USD')}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <p className="text-slate-400 text-sm text-center">Sin movimientos</p>
+            )}
           </div>
         </div>
       </div>

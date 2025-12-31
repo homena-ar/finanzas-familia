@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useData } from '@/hooks/useData'
 import { useAuth } from '@/hooks/useAuth'
 import { formatMoney, getMonthName, fetchDolar, getTagClass } from '@/lib/utils'
-import { Download, TrendingUp, CreditCard, Receipt, Pin, DollarSign, AlertTriangle } from 'lucide-react'
+import { Download, TrendingUp, CreditCard, Receipt, Pin, DollarSign, TrendingDown, ArrowRight } from 'lucide-react'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
 import { Doughnut } from 'react-chartjs-2'
 
@@ -13,8 +13,8 @@ ChartJS.register(ArcElement, Tooltip, Legend)
 export default function DashboardPage() {
   const { profile } = useAuth()
   const { 
-    tarjetas, gastos, impuestos, categorias,
-    loading, currentMonth, monthKey, getGastosMes, getImpuestosMes 
+    tarjetas, loading, currentMonth, monthKey, 
+    getGastosMes, getImpuestosMes, getGastosNoProximoMes, getDiferenciaMeses 
   } = useData()
   const [dolar, setDolar] = useState(1050)
 
@@ -32,6 +32,8 @@ export default function DashboardPage() {
 
   const gastosMes = getGastosMes(monthKey)
   const impuestosMes = getImpuestosMes(monthKey)
+  const noProximoMes = getGastosNoProximoMes(monthKey)
+  const diferencia = getDiferenciaMeses(monthKey, dolar)
 
   // Calcular totales
   let totalARS = 0, totalUSD = 0, totalFijos = 0
@@ -46,9 +48,10 @@ export default function DashboardPage() {
   const totalPagar = totalARS + totalImpuestos
   const usdEnPesos = totalUSD * dolar
 
-  // Budget check
+  // Budget check (solo si está habilitado)
   const budgetARS = profile?.budget_ars || 0
-  const budgetPct = budgetARS > 0 ? (totalARS / budgetARS) * 100 : 0
+  const hasBudget = budgetARS > 0
+  const budgetPct = hasBudget ? (totalARS / budgetARS) * 100 : 0
   const budgetStatus = budgetPct >= 100 ? 'danger' : budgetPct >= 80 ? 'warning' : 'ok'
 
   // Alertas
@@ -67,7 +70,7 @@ export default function DashboardPage() {
     }
   })
 
-  if (budgetARS > 0 && budgetPct >= 90) {
+  if (hasBudget && budgetPct >= 90) {
     alerts.push({
       type: budgetPct >= 100 ? 'danger' : 'warning',
       icon: '💸',
@@ -139,8 +142,8 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Budget Progress */}
-      {budgetARS > 0 && (
+      {/* Budget Progress - Solo si está habilitado */}
+      {hasBudget && (
         <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-6 text-white">
           <div className="font-bold mb-4">💰 Presupuesto del Mes</div>
           <div className="grid grid-cols-3 gap-4 mb-4">
@@ -170,6 +173,60 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* Gastos que NO vienen próximo mes */}
+      {noProximoMes.cantidad > 0 && (
+        <div className="bg-emerald-50 border-2 border-emerald-300 rounded-2xl p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <TrendingDown className="w-5 h-5 text-emerald-600" />
+            <span className="font-bold text-emerald-800">💰 No vienen el próximo mes</span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-emerald-700">{noProximoMes.cantidad}</div>
+              <div className="text-sm text-emerald-600">Gastos terminan</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-emerald-700">{formatMoney(noProximoMes.totalARS)}</div>
+              <div className="text-sm text-emerald-600">Ahorro ARS</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-emerald-700">{formatMoney(noProximoMes.totalUSD, 'USD')}</div>
+              <div className="text-sm text-emerald-600">Ahorro USD</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-emerald-700">{formatMoney(noProximoMes.totalARS + (noProximoMes.totalUSD * dolar))}</div>
+              <div className="text-sm text-emerald-600">Total en $</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Comparación mes actual vs próximo */}
+      {diferencia.actual.total > 0 && (
+        <div className="bg-slate-100 rounded-2xl p-5">
+          <div className="font-bold mb-4 flex items-center gap-2">
+            <ArrowRight className="w-5 h-5" />
+            Proyección próximo mes
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="bg-white rounded-xl p-4 text-center">
+              <div className="text-sm text-slate-500 mb-1">Este mes</div>
+              <div className="text-xl font-bold">{formatMoney(diferencia.actual.total)}</div>
+            </div>
+            <div className="bg-white rounded-xl p-4 text-center">
+              <div className="text-sm text-slate-500 mb-1">Próximo mes</div>
+              <div className="text-xl font-bold">{formatMoney(diferencia.proximo.total)}</div>
+            </div>
+            <div className={`rounded-xl p-4 text-center ${diferencia.diferencia > 0 ? 'bg-emerald-100' : 'bg-red-100'}`}>
+              <div className="text-sm text-slate-500 mb-1">Diferencia</div>
+              <div className={`text-xl font-bold ${diferencia.diferencia > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                {diferencia.diferencia > 0 ? '-' : '+'}{formatMoney(Math.abs(diferencia.diferencia))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="stat-card">
@@ -184,9 +241,17 @@ export default function DashboardPage() {
           <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center mb-3">
             <CreditCard className="w-5 h-5 text-indigo-600" />
           </div>
-          <div className="text-xs text-slate-500 font-semibold uppercase">Consumos</div>
+          <div className="text-xs text-slate-500 font-semibold uppercase">Consumos ARS</div>
           <div className="text-xl font-bold">{formatMoney(totalARS)}</div>
-          <div className="text-xs text-slate-500">+ {formatMoney(totalUSD, 'USD')}</div>
+        </div>
+
+        <div className="stat-card">
+          <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center mb-3">
+            <DollarSign className="w-5 h-5 text-emerald-600" />
+          </div>
+          <div className="text-xs text-slate-500 font-semibold uppercase">Consumos USD</div>
+          <div className="text-xl font-bold text-emerald-600">{formatMoney(totalUSD, 'USD')}</div>
+          <div className="text-xs text-slate-500">≈ {formatMoney(usdEnPesos)}</div>
         </div>
 
         <div className="stat-card">
@@ -198,20 +263,11 @@ export default function DashboardPage() {
         </div>
 
         <div className="stat-card">
-          <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center mb-3">
-            <Pin className="w-5 h-5 text-emerald-600" />
+          <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center mb-3">
+            <Pin className="w-5 h-5 text-purple-600" />
           </div>
           <div className="text-xs text-slate-500 font-semibold uppercase">Fijos</div>
-          <div className="text-xl font-bold text-emerald-600">{formatMoney(totalFijos)}</div>
-        </div>
-
-        <div className="stat-card">
-          <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center mb-3">
-            <DollarSign className="w-5 h-5 text-amber-600" />
-          </div>
-          <div className="text-xs text-slate-500 font-semibold uppercase">USD en $</div>
-          <div className="text-xl font-bold">{formatMoney(usdEnPesos)}</div>
-          <div className="text-xs text-slate-500">{formatMoney(totalUSD, 'USD')}</div>
+          <div className="text-xl font-bold text-purple-600">{formatMoney(totalFijos)}</div>
         </div>
       </div>
 
@@ -232,7 +288,7 @@ export default function DashboardPage() {
               />
             ) : (
               <div className="flex items-center justify-center h-full text-slate-400">
-                Sin datos
+                Sin datos este mes
               </div>
             )}
           </div>
@@ -262,7 +318,7 @@ export default function DashboardPage() {
                 </div>
               )
             }) : (
-              <div className="text-center text-slate-400 py-8">Sin gastos</div>
+              <div className="text-center text-slate-400 py-8">Sin gastos este mes</div>
             )}
           </div>
         </div>
@@ -285,7 +341,7 @@ export default function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {tarjetas.map(t => {
+              {tarjetas.length > 0 ? tarjetas.map(t => {
                 const gT = gastosMes.filter(g => g.tarjeta_id === t.id)
                 const iT = impuestosMes.filter(i => i.tarjeta_id === t.id)
                 let cARS = 0, cUSD = 0
@@ -306,7 +362,11 @@ export default function DashboardPage() {
                     <td className="p-4 font-bold">{formatMoney(cARS + cImp)}</td>
                   </tr>
                 )
-              })}
+              }) : (
+                <tr>
+                  <td colSpan={5} className="p-8 text-center text-slate-400">No hay tarjetas configuradas</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

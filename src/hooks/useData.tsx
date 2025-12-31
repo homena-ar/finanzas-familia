@@ -186,30 +186,111 @@ export function useData() {
       .insert({ tipo, monto, user_id: user!.id })
     
     if (!error) {
-      // Update profile
-      const field = tipo === 'pesos' ? 'ahorro_pesos' : 'ahorro_usd'
-      await supabase.rpc('increment_ahorro', { user_id: user!.id, field, amount: monto })
       fetchAll()
     }
     return { error }
   }
 
-  // Helpers
+  // CORREGIDO: Filtrar gastos por mes correctamente
   const getGastosMes = (mes: string) => {
     return gastos.filter(g => {
-      if (g.es_fijo) return true
+      // Gastos fijos siempre aparecen (pero solo si tienen ese mes_facturacion o anterior)
+      if (g.es_fijo) {
+        // Solo mostrar fijos si el mes_facturacion es igual o anterior al mes consultado
+        const mesFact = new Date(g.mes_facturacion + '-01')
+        const mesConsulta = new Date(mes + '-01')
+        return mesFact <= mesConsulta
+      }
+      
+      // Gastos en cuotas
       if (g.cuotas > 1) {
         const start = new Date(g.mes_facturacion + '-01')
         const current = new Date(mes + '-01')
         const diff = (current.getFullYear() - start.getFullYear()) * 12 + current.getMonth() - start.getMonth()
         return diff >= 0 && diff < g.cuotas
       }
+      
+      // Gastos normales: solo en su mes de facturación
       return g.mes_facturacion === mes
     })
   }
 
   const getImpuestosMes = (mes: string) => {
     return impuestos.filter(i => i.mes === mes)
+  }
+
+  // NUEVO: Calcular gastos que NO vienen el próximo mes
+  const getGastosNoProximoMes = (mesActual: string) => {
+    const gastosActuales = getGastosMes(mesActual)
+    const nextMonth = new Date(mesActual + '-01')
+    nextMonth.setMonth(nextMonth.getMonth() + 1)
+    const nextMonthKey = getMonthKey(nextMonth)
+    const gastosProximo = getGastosMes(nextMonthKey)
+    
+    // Gastos que están en el mes actual pero NO en el próximo (excluyendo fijos)
+    const noVienen = gastosActuales.filter(g => {
+      if (g.es_fijo) return false // Los fijos siempre vienen
+      return !gastosProximo.some(gp => gp.id === g.id)
+    })
+    
+    let totalARS = 0
+    let totalUSD = 0
+    noVienen.forEach(g => {
+      const monto = g.cuotas > 1 ? g.monto / g.cuotas : g.monto
+      if (g.moneda === 'USD') totalUSD += monto
+      else totalARS += monto
+    })
+    
+    return {
+      gastos: noVienen,
+      cantidad: noVienen.length,
+      totalARS,
+      totalUSD
+    }
+  }
+
+  // NUEVO: Calcular diferencia entre mes actual y próximo
+  const getDiferenciaMeses = (mesActual: string, dolar: number) => {
+    const gastosActuales = getGastosMes(mesActual)
+    const impuestosActuales = getImpuestosMes(mesActual)
+    
+    const nextMonth = new Date(mesActual + '-01')
+    nextMonth.setMonth(nextMonth.getMonth() + 1)
+    const nextMonthKey = getMonthKey(nextMonth)
+    
+    const gastosProximo = getGastosMes(nextMonthKey)
+    const impuestosProximo = getImpuestosMes(nextMonthKey)
+    
+    // Total actual
+    let totalActualARS = 0
+    let totalActualUSD = 0
+    gastosActuales.forEach(g => {
+      const monto = g.cuotas > 1 ? g.monto / g.cuotas : g.monto
+      if (g.moneda === 'USD') totalActualUSD += monto
+      else totalActualARS += monto
+    })
+    const totalImpActual = impuestosActuales.reduce((s, i) => s + i.monto, 0)
+    
+    // Total próximo
+    let totalProximoARS = 0
+    let totalProximoUSD = 0
+    gastosProximo.forEach(g => {
+      const monto = g.cuotas > 1 ? g.monto / g.cuotas : g.monto
+      if (g.moneda === 'USD') totalProximoUSD += monto
+      else totalProximoARS += monto
+    })
+    const totalImpProximo = impuestosProximo.reduce((s, i) => s + i.monto, 0)
+    
+    const totalActual = totalActualARS + totalImpActual + (totalActualUSD * dolar)
+    const totalProximo = totalProximoARS + totalImpProximo + (totalProximoUSD * dolar)
+    
+    return {
+      actual: { ars: totalActualARS, usd: totalActualUSD, imp: totalImpActual, total: totalActual },
+      proximo: { ars: totalProximoARS, usd: totalProximoUSD, imp: totalImpProximo, total: totalProximo },
+      diferencia: totalActual - totalProximo,
+      diferenciaARS: totalActualARS - totalProximoARS,
+      diferenciaUSD: totalActualUSD - totalProximoUSD
+    }
   }
 
   const changeMonth = (delta: number) => {
@@ -226,6 +307,7 @@ export function useData() {
     addTag, deleteTag,
     addMeta, updateMeta, deleteMeta,
     addMovimiento,
-    getGastosMes, getImpuestosMes
+    getGastosMes, getImpuestosMes,
+    getGastosNoProximoMes, getDiferenciaMeses
   }
 }
