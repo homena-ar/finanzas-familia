@@ -132,8 +132,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const hideDuration = now - hideTime
         console.log('👁️ [useAuth] Tab visible again - was hidden for', Math.round(hideDuration/1000), 'seconds')
 
-        // If was hidden for more than 10 seconds, check if Supabase client is still working
-        if (hideDuration > 10000) {
+        // If was hidden for more than 3 seconds, check if Supabase client is still working
+        if (hideDuration > 3000) {
           console.log('👁️ [useAuth] Testing Supabase client health...')
 
           // Try a simple query with a 3-second timeout
