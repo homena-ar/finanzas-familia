@@ -52,8 +52,9 @@ export default function AhorrosPage() {
     const currentValue = tipo === 'pesos' ? ahorroPesos : ahorroUsd
     const newValue = Math.max(0, currentValue + finalAmount)
 
-    console.log('🟢 [AhorrosPage] handleAddSavings - Updating profile:', field, '=', newValue)
-    await updateProfile({ [field]: newValue })
+    // TEMPORARILY SKIP updateProfile to test if addMovimiento works
+    console.log('🟢 [AhorrosPage] handleAddSavings - SKIPPING profile update (testing)')
+    // await updateProfile({ [field]: newValue })
 
     console.log('🟢 [AhorrosPage] handleAddSavings - Calling addMovimiento with tipo:', tipo, 'amount:', finalAmount)
     const result = await addMovimiento(tipo, finalAmount)
