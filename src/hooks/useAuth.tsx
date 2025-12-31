@@ -45,7 +45,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let mounted = true
-    console.log('🔐 [useAuth] Initial mount')
+    const mountTime = Date.now()
+    console.log('🔐 [useAuth] Initial mount at', mountTime)
+    console.log('👁️ [useAuth] Document visibility on mount:', document.visibilityState)
+    console.log('👁️ [useAuth] Just reloaded flag:', sessionStorage.getItem('just_reloaded'))
 
     const getSession = async () => {
       console.log('🔐 [useAuth] Getting session...')
@@ -107,18 +110,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
 
     // Force page reload when returning to tab to avoid stale Supabase client issues
+    // Only reload if page was hidden for more than 2 seconds to avoid reload loops
     let wasHidden = false
+    let hideTime = 0
     const handleVisibilityChange = () => {
+      const now = Date.now()
+      const timeSinceMount = now - mountTime
+      console.log('👁️ [useAuth] Visibility changed to:', document.visibilityState, 'at', timeSinceMount, 'ms after mount')
+
+      // Prevent reloads within first 10 seconds of page load to avoid loops
+      if (timeSinceMount < 10000) {
+        console.log('👁️ [useAuth] Ignoring visibility change - too soon after mount (', timeSinceMount, 'ms )')
+        return
+      }
+
       if (document.visibilityState === 'hidden') {
         wasHidden = true
+        hideTime = now
         console.log('👁️ [useAuth] Tab hidden - marking for reload on return')
       } else if (document.visibilityState === 'visible' && wasHidden) {
-        console.log('👁️ [useAuth] Tab visible again - reloading page to refresh Supabase client')
-        window.location.reload()
+        const hideDuration = now - hideTime
+        console.log('👁️ [useAuth] Tab visible again - was hidden for', hideDuration, 'ms')
+
+        // Only reload if was hidden for more than 2 seconds
+        if (hideDuration > 2000) {
+          console.log('👁️ [useAuth] Reloading page to refresh Supabase client')
+          // Set a flag to prevent reload loops
+          sessionStorage.setItem('just_reloaded', 'true')
+          window.location.reload()
+        } else {
+          console.log('👁️ [useAuth] Not reloading - was only hidden for', hideDuration, 'ms')
+        }
+      } else if (document.visibilityState === 'visible' && !wasHidden) {
+        console.log('👁️ [useAuth] Tab became visible but was never hidden - ignoring')
       }
     }
 
-    document.addEventListener('visibilitychange', handleVisibilityChange)
+    // Check if we just reloaded - if so, don't reload again
+    const justReloaded = sessionStorage.getItem('just_reloaded')
+    if (justReloaded) {
+      console.log('👁️ [useAuth] Just reloaded - clearing flag and skipping reload handler temporarily')
+      sessionStorage.removeItem('just_reloaded')
+      // Don't add the visibility listener for 5 seconds after reload
+      setTimeout(() => {
+        console.log('👁️ [useAuth] Adding visibility change listener after cooldown')
+        document.addEventListener('visibilitychange', handleVisibilityChange)
+      }, 5000)
+    } else {
+      console.log('👁️ [useAuth] Adding visibility change listener immediately')
+      document.addEventListener('visibilitychange', handleVisibilityChange)
+    }
 
     return () => {
       console.log('🔐 [useAuth] Unmounting')
