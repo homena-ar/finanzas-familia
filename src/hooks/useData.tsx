@@ -1,0 +1,231 @@
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import { createClient } from '@/lib/supabase'
+import { useAuth } from './useAuth'
+import { Tarjeta, Gasto, Impuesto, Categoria, Tag, Meta, MovimientoAhorro } from '@/types'
+import { getMonthKey } from '@/lib/utils'
+
+export function useData() {
+  const { user } = useAuth()
+  const supabase = createClient()
+  
+  const [tarjetas, setTarjetas] = useState<Tarjeta[]>([])
+  const [gastos, setGastos] = useState<Gasto[]>([])
+  const [impuestos, setImpuestos] = useState<Impuesto[]>([])
+  const [categorias, setCategorias] = useState<Categoria[]>([])
+  const [tags, setTags] = useState<Tag[]>([])
+  const [metas, setMetas] = useState<Meta[]>([])
+  const [movimientos, setMovimientos] = useState<MovimientoAhorro[]>([])
+  const [loading, setLoading] = useState(true)
+  const [currentMonth, setCurrentMonth] = useState(new Date())
+
+  const fetchAll = useCallback(async () => {
+    if (!user) return
+    setLoading(true)
+
+    const [
+      { data: tarjetasData },
+      { data: gastosData },
+      { data: impuestosData },
+      { data: categoriasData },
+      { data: tagsData },
+      { data: metasData },
+      { data: movimientosData }
+    ] = await Promise.all([
+      supabase.from('tarjetas').select('*').eq('user_id', user.id).order('created_at'),
+      supabase.from('gastos').select('*, tarjeta:tarjetas(*), categoria:categorias(*)').eq('user_id', user.id).order('fecha', { ascending: false }),
+      supabase.from('impuestos').select('*, tarjeta:tarjetas(*)').eq('user_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('categorias').select('*').eq('user_id', user.id).order('nombre'),
+      supabase.from('tags').select('*').eq('user_id', user.id).order('nombre'),
+      supabase.from('metas').select('*').eq('user_id', user.id).order('created_at'),
+      supabase.from('movimientos_ahorro').select('*').eq('user_id', user.id).order('fecha', { ascending: false }).limit(20)
+    ])
+
+    setTarjetas(tarjetasData || [])
+    setGastos(gastosData || [])
+    setImpuestos(impuestosData || [])
+    setCategorias(categoriasData || [])
+    setTags(tagsData || [])
+    setMetas(metasData || [])
+    setMovimientos(movimientosData || [])
+    setLoading(false)
+  }, [user])
+
+  useEffect(() => {
+    fetchAll()
+  }, [fetchAll])
+
+  // Tarjetas CRUD
+  const addTarjeta = async (data: Omit<Tarjeta, 'id' | 'user_id' | 'created_at'>) => {
+    const { data: newTarjeta, error } = await supabase
+      .from('tarjetas')
+      .insert({ ...data, user_id: user!.id })
+      .select()
+      .single()
+    if (!error && newTarjeta) setTarjetas(prev => [...prev, newTarjeta])
+    return { error }
+  }
+
+  const updateTarjeta = async (id: string, data: Partial<Tarjeta>) => {
+    const { error } = await supabase.from('tarjetas').update(data).eq('id', id)
+    if (!error) setTarjetas(prev => prev.map(t => t.id === id ? { ...t, ...data } : t))
+    return { error }
+  }
+
+  const deleteTarjeta = async (id: string) => {
+    const { error } = await supabase.from('tarjetas').delete().eq('id', id)
+    if (!error) setTarjetas(prev => prev.filter(t => t.id !== id))
+    return { error }
+  }
+
+  // Gastos CRUD
+  const addGasto = async (data: Omit<Gasto, 'id' | 'user_id' | 'created_at' | 'tarjeta' | 'categoria' | 'tags'>) => {
+    const { data: newGasto, error } = await supabase
+      .from('gastos')
+      .insert({ ...data, user_id: user!.id })
+      .select('*, tarjeta:tarjetas(*), categoria:categorias(*)')
+      .single()
+    if (!error && newGasto) setGastos(prev => [newGasto, ...prev])
+    return { error, data: newGasto }
+  }
+
+  const updateGasto = async (id: string, data: Partial<Gasto>) => {
+    const { error } = await supabase.from('gastos').update(data).eq('id', id)
+    if (!error) {
+      const { data: updated } = await supabase
+        .from('gastos')
+        .select('*, tarjeta:tarjetas(*), categoria:categorias(*)')
+        .eq('id', id)
+        .single()
+      if (updated) setGastos(prev => prev.map(g => g.id === id ? updated : g))
+    }
+    return { error }
+  }
+
+  const deleteGasto = async (id: string) => {
+    const { error } = await supabase.from('gastos').delete().eq('id', id)
+    if (!error) setGastos(prev => prev.filter(g => g.id !== id))
+    return { error }
+  }
+
+  // Impuestos CRUD
+  const addImpuesto = async (data: Omit<Impuesto, 'id' | 'user_id' | 'created_at' | 'tarjeta'>) => {
+    const { data: newImp, error } = await supabase
+      .from('impuestos')
+      .insert({ ...data, user_id: user!.id })
+      .select('*, tarjeta:tarjetas(*)')
+      .single()
+    if (!error && newImp) setImpuestos(prev => [newImp, ...prev])
+    return { error }
+  }
+
+  const updateImpuesto = async (id: string, data: Partial<Impuesto>) => {
+    const { error } = await supabase.from('impuestos').update(data).eq('id', id)
+    if (!error) {
+      const { data: updated } = await supabase
+        .from('impuestos')
+        .select('*, tarjeta:tarjetas(*)')
+        .eq('id', id)
+        .single()
+      if (updated) setImpuestos(prev => prev.map(i => i.id === id ? updated : i))
+    }
+    return { error }
+  }
+
+  const deleteImpuesto = async (id: string) => {
+    const { error } = await supabase.from('impuestos').delete().eq('id', id)
+    if (!error) setImpuestos(prev => prev.filter(i => i.id !== id))
+    return { error }
+  }
+
+  // Tags CRUD
+  const addTag = async (nombre: string) => {
+    const { data: newTag, error } = await supabase
+      .from('tags')
+      .insert({ nombre, user_id: user!.id })
+      .select()
+      .single()
+    if (!error && newTag) setTags(prev => [...prev, newTag])
+    return { error }
+  }
+
+  const deleteTag = async (id: string) => {
+    const { error } = await supabase.from('tags').delete().eq('id', id)
+    if (!error) setTags(prev => prev.filter(t => t.id !== id))
+    return { error }
+  }
+
+  // Metas CRUD
+  const addMeta = async (data: Omit<Meta, 'id' | 'user_id' | 'created_at' | 'completada'>) => {
+    const { data: newMeta, error } = await supabase
+      .from('metas')
+      .insert({ ...data, user_id: user!.id })
+      .select()
+      .single()
+    if (!error && newMeta) setMetas(prev => [...prev, newMeta])
+    return { error }
+  }
+
+  const updateMeta = async (id: string, data: Partial<Meta>) => {
+    const { error } = await supabase.from('metas').update(data).eq('id', id)
+    if (!error) setMetas(prev => prev.map(m => m.id === id ? { ...m, ...data } : m))
+    return { error }
+  }
+
+  const deleteMeta = async (id: string) => {
+    const { error } = await supabase.from('metas').delete().eq('id', id)
+    if (!error) setMetas(prev => prev.filter(m => m.id !== id))
+    return { error }
+  }
+
+  // Ahorros
+  const addMovimiento = async (tipo: 'pesos' | 'usd', monto: number) => {
+    const { error } = await supabase
+      .from('movimientos_ahorro')
+      .insert({ tipo, monto, user_id: user!.id })
+    
+    if (!error) {
+      // Update profile
+      const field = tipo === 'pesos' ? 'ahorro_pesos' : 'ahorro_usd'
+      await supabase.rpc('increment_ahorro', { user_id: user!.id, field, amount: monto })
+      fetchAll()
+    }
+    return { error }
+  }
+
+  // Helpers
+  const getGastosMes = (mes: string) => {
+    return gastos.filter(g => {
+      if (g.es_fijo) return true
+      if (g.cuotas > 1) {
+        const start = new Date(g.mes_facturacion + '-01')
+        const current = new Date(mes + '-01')
+        const diff = (current.getFullYear() - start.getFullYear()) * 12 + current.getMonth() - start.getMonth()
+        return diff >= 0 && diff < g.cuotas
+      }
+      return g.mes_facturacion === mes
+    })
+  }
+
+  const getImpuestosMes = (mes: string) => {
+    return impuestos.filter(i => i.mes === mes)
+  }
+
+  const changeMonth = (delta: number) => {
+    setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + delta, 1))
+  }
+
+  return {
+    tarjetas, gastos, impuestos, categorias, tags, metas, movimientos,
+    loading, currentMonth, monthKey: getMonthKey(currentMonth),
+    fetchAll, changeMonth,
+    addTarjeta, updateTarjeta, deleteTarjeta,
+    addGasto, updateGasto, deleteGasto,
+    addImpuesto, updateImpuesto, deleteImpuesto,
+    addTag, deleteTag,
+    addMeta, updateMeta, deleteMeta,
+    addMovimiento,
+    getGastosMes, getImpuestosMes
+  }
+}
