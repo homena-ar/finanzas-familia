@@ -256,13 +256,36 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // Gastos CRUD
   const addGasto = useCallback(async (data: Omit<Gasto, 'id' | 'user_id' | 'created_at' | 'tarjeta' | 'categoria' | 'tags'>) => {
     console.log('💰 [useData] addGasto called with data:', data)
-    const { data: newGasto, error } = await supabase
-      .from('gastos')
-      .insert({ ...data, user_id: user!.id })
-      .select('*, tarjeta:tarjetas(*), categoria:categorias(*)')
-      .single()
-    if (!error && newGasto) setGastos(prev => [newGasto, ...prev])
-    return { error, data: newGasto }
+    console.log('💰 [useData] addGasto - user.id:', user?.id)
+
+    try {
+      const insertData = { ...data, user_id: user!.id }
+      console.log('💰 [useData] addGasto - Inserting:', insertData)
+
+      const { data: newGasto, error } = await supabase
+        .from('gastos')
+        .insert(insertData)
+        .select('*, tarjeta:tarjetas(*), categoria:categorias(*)')
+        .single()
+
+      console.log('💰 [useData] addGasto - Result:', { newGasto, error })
+
+      if (error) {
+        console.error('💰 [useData] addGasto ERROR:', error)
+        console.error('💰 [useData] addGasto ERROR details:', JSON.stringify(error, null, 2))
+        return { error, data: null }
+      }
+
+      if (newGasto) {
+        console.log('💰 [useData] addGasto SUCCESS - Adding to state')
+        setGastos(prev => [newGasto, ...prev])
+      }
+
+      return { error: null, data: newGasto }
+    } catch (err) {
+      console.error('💰 [useData] addGasto EXCEPTION:', err)
+      return { error: err as any, data: null }
+    }
   }, [supabase, user])
 
   const updateGasto = useCallback(async (id: string, data: Partial<Gasto>) => {
@@ -367,14 +390,31 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // Ahorros
   const addMovimiento = useCallback(async (tipo: 'pesos' | 'usd', monto: number) => {
     console.log('💵 [useData] addMovimiento called - tipo:', tipo, 'monto:', monto)
-    const { error } = await supabase
-      .from('movimientos_ahorro')
-      .insert({ tipo, monto, user_id: user!.id })
+    console.log('💵 [useData] addMovimiento - user.id:', user?.id)
 
-    if (!error) {
+    try {
+      const insertData = { tipo, monto, user_id: user!.id }
+      console.log('💵 [useData] addMovimiento - Inserting:', insertData)
+
+      const { error } = await supabase
+        .from('movimientos_ahorro')
+        .insert(insertData)
+
+      console.log('💵 [useData] addMovimiento - Result error:', error)
+
+      if (error) {
+        console.error('💵 [useData] addMovimiento ERROR:', error)
+        console.error('💵 [useData] addMovimiento ERROR details:', JSON.stringify(error, null, 2))
+        return { error }
+      }
+
+      console.log('💵 [useData] addMovimiento SUCCESS - Calling fetchAll')
       fetchAll()
+      return { error: null }
+    } catch (err) {
+      console.error('💵 [useData] addMovimiento EXCEPTION:', err)
+      return { error: err as any }
     }
-    return { error }
   }, [supabase, user, fetchAll])
 
   // CORREGIDO: Filtrar gastos por mes correctamente
