@@ -53,10 +53,15 @@ type DataContextType = {
 
 const DataContext = createContext<DataContextType | undefined>(undefined)
 
+// Counter to detect infinite loops
+let fetchAllCallCount = 0
+
 export function DataProvider({ children }: { children: ReactNode }) {
   const { user, loading: authLoading } = useAuth()
   const supabase = useMemo(() => createClient(), [])
-  
+
+  console.log('📊 [DataProvider] RENDER - authLoading:', authLoading, 'user:', user?.id || 'NULL')
+
   const [tarjetas, setTarjetas] = useState<Tarjeta[]>([])
   const [gastos, setGastos] = useState<Gasto[]>([])
   const [impuestos, setImpuestos] = useState<Impuesto[]>([])
@@ -68,7 +73,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [currentMonth, setCurrentMonth] = useState(new Date())
 
   const fetchAll = useCallback(async () => {
-    console.log('📊 [useData] fetchAll called - Setting loading to TRUE')
+    fetchAllCallCount++
+    console.log('📊 [useData] fetchAll called #' + fetchAllCallCount + ' - Setting loading to TRUE')
+    console.log('📊 [useData] fetchAll - Current user.id:', user?.id)
+
+    if (fetchAllCallCount > 10) {
+      console.error('🚨 [useData] fetchAll called more than 10 times! Infinite loop detected!')
+      console.trace('Stack trace:')
+      return
+    }
+
     setLoading(true)
     try {
       if (!user) {
@@ -85,6 +99,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       }
 
       console.log('📊 [useData] Fetching data for user:', user.id)
+      const startTime = Date.now()
       const [
         { data: tarjetasData },
         { data: gastosData },
@@ -103,7 +118,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         supabase.from('movimientos_ahorro').select('*').eq('user_id', user.id).order('fecha', { ascending: false }).limit(20)
       ])
 
-      console.log('📊 [useData] Data fetched successfully')
+      const elapsed = Date.now() - startTime
+      console.log('📊 [useData] Data fetched successfully in', elapsed, 'ms')
+      console.log('📊 [useData] Fetched:', tarjetasData?.length || 0, 'tarjetas,', gastosData?.length || 0, 'gastos')
       setTarjetas(tarjetasData || [])
       setGastos(gastosData || [])
       setImpuestos(impuestosData || [])
@@ -129,6 +146,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     console.log('📊 [useData] useEffect triggered - authLoading:', authLoading, 'user:', user?.id || 'NULL')
+    console.log('📊 [useData] useEffect - fetchAll function identity:', fetchAll.toString().substring(0, 50))
     if (authLoading) {
       console.log('📊 [useData] Auth still loading - Setting loading to TRUE')
       setLoading(true)
@@ -385,22 +403,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + delta, 1))
   }
 
-  const value: DataContextType = useMemo(() => ({
-    tarjetas, gastos, impuestos, categorias, tags, metas, movimientos,
-    loading, currentMonth, monthKey: getMonthKey(currentMonth),
-    fetchAll, changeMonth,
-    addTarjeta, updateTarjeta, deleteTarjeta,
-    addGasto, updateGasto, deleteGasto,
-    addImpuesto, updateImpuesto, deleteImpuesto,
-    addTag, deleteTag,
-    addMeta, updateMeta, deleteMeta,
-    addMovimiento,
-    getGastosMes, getImpuestosMes,
-    getGastosNoProximoMes, getDiferenciaMeses
+  const value: DataContextType = useMemo(() => {
+    console.log('📊 [useData] Creating context value - loading:', loading, 'tarjetas:', tarjetas.length, 'gastos:', gastos.length)
+    return {
+      tarjetas, gastos, impuestos, categorias, tags, metas, movimientos,
+      loading, currentMonth, monthKey: getMonthKey(currentMonth),
+      fetchAll, changeMonth,
+      addTarjeta, updateTarjeta, deleteTarjeta,
+      addGasto, updateGasto, deleteGasto,
+      addImpuesto, updateImpuesto, deleteImpuesto,
+      addTag, deleteTag,
+      addMeta, updateMeta, deleteMeta,
+      addMovimiento,
+      getGastosMes, getImpuestosMes,
+      getGastosNoProximoMes, getDiferenciaMeses
+    }
     // Functions are NOT in dependencies because they access current state via closure
     // They don't need to be recreated when state changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [
+  }, [
     tarjetas, gastos, impuestos, categorias, tags, metas, movimientos,
     loading, currentMonth, fetchAll
   ])
