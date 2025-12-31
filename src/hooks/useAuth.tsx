@@ -25,47 +25,83 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
 
-  useEffect(() => {
-    const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      setSession(session)
-      setUser(session?.user ?? null)
+  const fetchProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
       
-      if (session?.user) {
-        const { data } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single()
-        setProfile(data)
+      if (error) throw error
+      return data
+    } catch (error) {
+      console.error('Error fetching profile:', error)
+      return null
+    }
+  }
+
+  useEffect(() => {
+    let mounted = true
+
+    const getSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession()
+        
+        if (error) throw error
+        
+        if (mounted) {
+          setSession(session)
+          setUser(session?.user ?? null)
+          
+          if (session?.user) {
+            const profileData = await fetchProfile(session.user.id)
+            if (mounted) setProfile(profileData)
+          }
+          setLoading(false)
+        }
+      } catch (error) {
+        console.error('Session error:', error)
+        if (mounted) {
+          setSession(null)
+          setUser(null)
+          setProfile(null)
+          setLoading(false)
+        }
       }
-      setLoading(false)
     }
 
     getSession()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      
-      if (session?.user) {
-        const { data } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single()
-        setProfile(data)
-      } else {
-        setProfile(null)
+      if (mounted) {
+        setSession(session)
+        setUser(session?.user ?? null)
+        
+        if (event === 'SIGNED_OUT') {
+          setProfile(null)
+          setLoading(false)
+        } else if (session?.user) {
+          const profileData = await fetchProfile(session.user.id)
+          if (mounted) setProfile(profileData)
+          setLoading(false)
+        } else {
+          setProfile(null)
+          setLoading(false)
+        }
       }
-      setLoading(false)
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
   }, [])
 
   const signIn = async (email: string, password: string) => {
+    setLoading(true)
     const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) setLoading(false)
     return { error }
   }
 
@@ -75,10 +111,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const signOut = async () => {
+    setLoading(true)
     await supabase.auth.signOut()
     setUser(null)
     setProfile(null)
     setSession(null)
+    setLoading(false)
   }
 
   const updateProfile = async (data: Partial<Profile>) => {
