@@ -385,7 +385,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + delta, 1))
   }
 
-  const value: DataContextType = {
+  const value: DataContextType = useMemo(() => ({
     tarjetas, gastos, impuestos, categorias, tags, metas, movimientos,
     loading, currentMonth, monthKey: getMonthKey(currentMonth),
     fetchAll, changeMonth,
@@ -397,7 +397,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
     addMovimiento,
     getGastosMes, getImpuestosMes,
     getGastosNoProximoMes, getDiferenciaMeses
-  }
+    // Functions are NOT in dependencies because they access current state via closure
+    // They don't need to be recreated when state changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [
+    tarjetas, gastos, impuestos, categorias, tags, metas, movimientos,
+    loading, currentMonth, fetchAll
+  ])
 
   return (
     <DataContext.Provider value={value}>
