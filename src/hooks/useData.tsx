@@ -68,12 +68,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [currentMonth, setCurrentMonth] = useState(new Date())
 
   const fetchAll = useCallback(async () => {
-    // Esperar a que se resuelva el estado de autenticación para evitar ciclos de carga
-    if (authLoading) {
-      setLoading(true)
-      return
-    }
-
     setLoading(true)
     try {
       if (!user) {
@@ -124,11 +118,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false)
     }
-  }, [authLoading, supabase, user])
+  }, [supabase, user])
 
   useEffect(() => {
+    if (authLoading) {
+      setLoading(true)
+      return
+    }
     fetchAll()
-  }, [fetchAll])
+  }, [authLoading, fetchAll])
 
   useEffect(() => {
     if (user) {
