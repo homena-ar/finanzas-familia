@@ -237,7 +237,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       .single()
     if (!error && newTarjeta) setTarjetas(prev => [...prev, newTarjeta])
     return { error }
-  }, [supabase, user])
+  }, [supabase, user?.id])
 
   const updateTarjeta = useCallback(async (id: string, data: Partial<Tarjeta>) => {
     console.log('💳 [useData] updateTarjeta called for id:', id)
@@ -286,7 +286,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       console.error('💰 [useData] addGasto EXCEPTION:', err)
       return { error: err as any, data: null }
     }
-  }, [supabase, user])
+  }, [supabase, user?.id])
 
   const updateGasto = useCallback(async (id: string, data: Partial<Gasto>) => {
     console.log('💰 [useData] updateGasto called for id:', id)
@@ -319,7 +319,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       .single()
     if (!error && newImp) setImpuestos(prev => [newImp, ...prev])
     return { error }
-  }, [supabase, user])
+  }, [supabase, user?.id])
 
   const updateImpuesto = useCallback(async (id: string, data: Partial<Impuesto>) => {
     console.log('📝 [useData] updateImpuesto called for id:', id)
@@ -352,7 +352,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       .single()
     if (!error && newTag) setTags(prev => [...prev, newTag])
     return { error }
-  }, [supabase, user])
+  }, [supabase, user?.id])
 
   const deleteTag = useCallback(async (id: string) => {
     console.log('🏷️ [useData] deleteTag called for id:', id)
@@ -371,7 +371,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       .single()
     if (!error && newMeta) setMetas(prev => [...prev, newMeta])
     return { error }
-  }, [supabase, user])
+  }, [supabase, user?.id])
 
   const updateMeta = useCallback(async (id: string, data: Partial<Meta>) => {
     console.log('🎯 [useData] updateMeta called for id:', id)
@@ -415,7 +415,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       console.error('💵 [useData] addMovimiento EXCEPTION:', err)
       return { error: err as any }
     }
-  }, [supabase, user, fetchAll])
+  }, [supabase, user?.id, fetchAll])
 
   // CORREGIDO: Filtrar gastos por mes correctamente
   const getGastosMes = useCallback((mes: string) => {
