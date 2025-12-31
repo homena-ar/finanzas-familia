@@ -47,13 +47,20 @@ export default function AhorrosPage() {
       return
     }
 
+    console.log('🟢 [AhorrosPage] Validation passed, calculating values...')
     const finalAmount = isAdd ? amount : -amount
     const field = tipo === 'pesos' ? 'ahorro_pesos' : 'ahorro_usd'
     const currentValue = tipo === 'pesos' ? ahorroPesos : ahorroUsd
     const newValue = Math.max(0, currentValue + finalAmount)
+    console.log('🟢 [AhorrosPage] Calculated - field:', field, 'currentValue:', currentValue, 'newValue:', newValue)
 
+    console.log('🟢 [AhorrosPage] Calling updateProfile...')
     await updateProfile({ [field]: newValue })
+    console.log('🟢 [AhorrosPage] updateProfile completed')
+
+    console.log('🟢 [AhorrosPage] Calling addMovimiento...')
     await addMovimiento(tipo, finalAmount)
+    console.log('🟢 [AhorrosPage] addMovimiento completed')
 
     if (tipo === 'pesos') setInputPesos('')
     else setInputUsd('')
