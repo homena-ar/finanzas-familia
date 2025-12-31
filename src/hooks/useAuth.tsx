@@ -149,12 +149,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .catch((error) => {
               console.log('👁️ [useAuth] ❌ Supabase client is broken - forcing logout and reload')
               console.error('Health check error:', error)
-              // Client is broken, force logout and reload
-              supabase.auth.signOut().then(() => {
-                localStorage.clear()
-                sessionStorage.clear()
-                window.location.reload()
-              })
+              // Client is broken - don't wait for signOut (it might hang too)
+              // Just clear everything and reload immediately
+              localStorage.clear()
+              sessionStorage.clear()
+              console.log('👁️ [useAuth] Storage cleared - reloading now...')
+              window.location.reload()
             })
         } else {
           console.log('👁️ [useAuth] Short tab switch - no health check needed')
