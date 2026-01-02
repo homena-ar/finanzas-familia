@@ -1,14 +1,20 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, ReactNode, useMemo } from 'react'
-import { User, Session } from '@supabase/supabase-js'
-import { createClient } from '@/lib/supabase'
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import {
+  User,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  onAuthStateChanged
+} from 'firebase/auth'
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
+import { auth, db } from '@/lib/firebase'
 import { Profile } from '@/types'
 
 interface AuthContextType {
   user: User | null
   profile: Profile | null
-  session: Session | null
   loading: boolean
   signIn: (email: string, password: string) => Promise<{ error: any }>
   signUp: (email: string, password: string) => Promise<{ error: any }>
@@ -21,154 +27,123 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
-
-  // Create Supabase client once per AuthProvider mount - tied to React lifecycle
-  const supabase = useMemo(() => createClient(), [])
 
   const fetchProfile = async (userId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single()
-      
-      if (error) throw error
-      return data
+      console.log('🔐 [Firebase useAuth] Fetching profile for user:', userId)
+      const profileRef = doc(db, 'profiles', userId)
+      const profileSnap = await getDoc(profileRef)
+
+      if (profileSnap.exists()) {
+        console.log('🔐 [Firebase useAuth] Profile found')
+        return profileSnap.data() as Profile
+      } else {
+        console.log('🔐 [Firebase useAuth] Profile not found - creating default')
+        // Create default profile if it doesn't exist
+        const defaultProfile: Profile = {
+          id: userId,
+          email: auth.currentUser?.email || '',
+          ahorro_pesos: 0,
+          ahorro_usd: 0,
+          created_at: new Date().toISOString()
+        }
+        await setDoc(profileRef, defaultProfile)
+        return defaultProfile
+      }
     } catch (error) {
-      console.error('Error fetching profile:', error)
+      console.error('🔐 [Firebase useAuth] Error fetching profile:', error)
       return null
     }
   }
 
   useEffect(() => {
-    let mounted = true
-    console.log('🔐 [useAuth] Initial mount')
+    console.log('🔐 [Firebase useAuth] Setting up auth listener')
 
-    const getSession = async () => {
-      console.log('🔐 [useAuth] Getting session...')
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession()
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      console.log('🔐 [Firebase useAuth] Auth state changed:', firebaseUser ? 'USER LOGGED IN' : 'NO USER')
 
-        if (error) throw error
-
-        console.log('🔐 [useAuth] Session result:', session ? 'FOUND' : 'NOT FOUND')
-
-        if (mounted) {
-          setSession(session)
-          setUser(session?.user ?? null)
-
-          if (session?.user) {
-            console.log('🔐 [useAuth] Fetching profile for user:', session.user.id)
-            const profileData = await fetchProfile(session.user.id)
-            if (mounted) setProfile(profileData)
-          }
-          console.log('🔐 [useAuth] Setting loading to FALSE')
-          setLoading(false)
-        }
-      } catch (error) {
-        console.error('🔐 [useAuth] Session error:', error)
-        if (mounted) {
-          setSession(null)
-          setUser(null)
-          setProfile(null)
-          console.log('🔐 [useAuth] Error - Setting loading to FALSE')
-          setLoading(false)
-        }
+      if (firebaseUser) {
+        setUser(firebaseUser)
+        const profileData = await fetchProfile(firebaseUser.uid)
+        setProfile(profileData)
+      } else {
+        setUser(null)
+        setProfile(null)
       }
-    }
 
-    getSession()
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('🔐 [useAuth] Auth state change:', event, session ? 'HAS SESSION' : 'NO SESSION')
-      if (mounted) {
-        setSession(session)
-        setUser(session?.user ?? null)
-
-        if (event === 'SIGNED_OUT') {
-          console.log('🔐 [useAuth] SIGNED_OUT - Setting loading to FALSE')
-          setProfile(null)
-          setLoading(false)
-        } else if (session?.user) {
-          console.log('🔐 [useAuth] User logged in - Fetching profile')
-          const profileData = await fetchProfile(session.user.id)
-          if (mounted) setProfile(profileData)
-          console.log('🔐 [useAuth] Profile fetched - Setting loading to FALSE')
-          setLoading(false)
-        } else {
-          console.log('🔐 [useAuth] No user - Setting loading to FALSE')
-          setProfile(null)
-          setLoading(false)
-        }
-      }
+      setLoading(false)
     })
 
     return () => {
-      console.log('🔐 [useAuth] Unmounting')
-      mounted = false
-      subscription.unsubscribe()
+      console.log('🔐 [Firebase useAuth] Cleanup - unsubscribing')
+      unsubscribe()
     }
   }, [])
 
   const signIn = async (email: string, password: string) => {
-    console.log('🔐 [useAuth] signIn called - Setting loading to TRUE')
+    console.log('🔐 [Firebase useAuth] signIn called')
     setLoading(true)
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    // If error, clear loading state immediately
-    // If success, onAuthStateChange will handle setting loading to false
-    if (error) {
-      console.log('🔐 [useAuth] signIn ERROR - Setting loading to FALSE')
+    try {
+      await signInWithEmailAndPassword(auth, email, password)
+      console.log('🔐 [Firebase useAuth] signIn SUCCESS')
+      return { error: null }
+    } catch (error: any) {
+      console.error('🔐 [Firebase useAuth] signIn ERROR:', error)
       setLoading(false)
-    } else {
-      console.log('🔐 [useAuth] signIn SUCCESS - waiting for onAuthStateChange')
+      return { error }
     }
-    return { error }
   }
 
   const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({ email, password })
-    return { error }
+    console.log('🔐 [Firebase useAuth] signUp called')
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+      // Create profile document
+      const defaultProfile: Profile = {
+        id: userCredential.user.uid,
+        email: email,
+        ahorro_pesos: 0,
+        ahorro_usd: 0,
+        created_at: new Date().toISOString()
+      }
+      await setDoc(doc(db, 'profiles', userCredential.user.uid), defaultProfile)
+      console.log('🔐 [Firebase useAuth] signUp SUCCESS')
+      return { error: null }
+    } catch (error: any) {
+      console.error('🔐 [Firebase useAuth] signUp ERROR:', error)
+      return { error }
+    }
   }
 
   const signOut = async () => {
-    setLoading(true)
-    await supabase.auth.signOut()
+    console.log('🔐 [Firebase useAuth] signOut called')
+    await firebaseSignOut(auth)
     setUser(null)
     setProfile(null)
-    setSession(null)
     setLoading(false)
   }
 
   const updateProfile = async (data: Partial<Profile>) => {
     if (!user) return
 
-    console.log('🔧 [updateProfile] Starting update...', data)
+    console.log('🔧 [Firebase updateProfile] Starting update...', data)
 
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update(data)
-        .eq('id', user.id)
+      const profileRef = doc(db, 'profiles', user.uid)
+      await updateDoc(profileRef, data)
 
-      if (error) {
-        console.error('❌ [updateProfile] Error:', error)
-        throw error
-      }
-
-      console.log('✅ [updateProfile] Completed successfully')
+      console.log('✅ [Firebase updateProfile] Completed successfully')
       setProfile(prev => prev ? { ...prev, ...data } : null)
     } catch (error) {
-      console.error('❌ [updateProfile] Failed:', error)
+      console.error('❌ [Firebase updateProfile] Failed:', error)
       throw error
     }
   }
 
   return (
     <AuthContext.Provider value={{
-      user, profile, session, loading,
+      user, profile, loading,
       signIn, signUp, signOut, updateProfile
     }}>
       {children}
