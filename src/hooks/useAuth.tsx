@@ -44,6 +44,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const defaultProfile: Profile = {
           id: userId,
           email: auth.currentUser?.email || '',
+          nombre: auth.currentUser?.email?.split('@')[0] || '',
+          budget_ars: 0,
+          budget_usd: 0,
           ahorro_pesos: 0,
           ahorro_usd: 0,
           created_at: new Date().toISOString()
@@ -103,6 +106,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const defaultProfile: Profile = {
         id: userCredential.user.uid,
         email: email,
+        nombre: email.split('@')[0],
+        budget_ars: 0,
+        budget_usd: 0,
         ahorro_pesos: 0,
         ahorro_usd: 0,
         created_at: new Date().toISOString()
