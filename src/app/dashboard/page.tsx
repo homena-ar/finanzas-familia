@@ -8,6 +8,7 @@ import { formatMoney, getMonthName, fetchDolar, getTagClass, getMonthKey } from 
 import { Download, TrendingUp, CreditCard, Receipt, Pin, DollarSign, Calendar, X, ChevronRight } from 'lucide-react'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
 import { Doughnut } from 'react-chartjs-2'
+import { AlertModal } from '@/components/Modal'
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 
@@ -15,11 +16,12 @@ export default function DashboardPage() {
   const router = useRouter()
   const { profile } = useAuth()
   const {
-    tarjetas, categorias, gastos, loading, currentMonth, monthKey,
+    tarjetas, categorias, gastos, loading, currentMonth, monthKey, changeMonth,
     getGastosMes, getImpuestosMes
   } = useData()
   const [dolar, setDolar] = useState(1050)
   const [showEndingModal, setShowEndingModal] = useState(false)
+  const [showMonthAlert, setShowMonthAlert] = useState(false)
 
   console.log('📄 [ResumenPage] Render - loading:', loading)
 
@@ -30,6 +32,16 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchDolar().then(setDolar)
   }, [])
+
+  // Check if viewing a different month than current
+  useEffect(() => {
+    const today = new Date()
+    const currentMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
+
+    if (monthKey !== currentMonthKey && !loading) {
+      setShowMonthAlert(true)
+    }
+  }, [monthKey, loading])
 
   if (loading) {
     console.log('📄 [ResumenPage] SHOWING LOADING SPINNER - loading is TRUE')
@@ -414,6 +426,34 @@ export default function DashboardPage() {
               </tr>
             </thead>
             <tbody>
+              {/* Gastos en efectivo */}
+              {(() => {
+                const gEfectivo = gastosMes.filter(g => !g.tarjeta_id)
+                const iEfectivo = impuestosMes.filter(i => !i.tarjeta_id)
+                let efectivoARS = 0, efectivoUSD = 0
+                gEfectivo.forEach(g => {
+                  const m = g.cuotas > 1 ? g.monto / g.cuotas : g.monto
+                  if (g.moneda === 'USD') efectivoUSD += m
+                  else efectivoARS += m
+                })
+                const efectivoImp = iEfectivo.reduce((s, i) => s + i.monto, 0)
+
+                if (gEfectivo.length > 0 || iEfectivo.length > 0) {
+                  return (
+                    <tr className="border-b border-slate-100 hover:bg-emerald-50 cursor-pointer transition-colors">
+                      <td className="p-4">
+                        <span className="tag bg-emerald-100 text-emerald-700">💵 Efectivo</span>
+                      </td>
+                      <td className="p-4 font-semibold">{formatMoney(efectivoARS)}</td>
+                      <td className="p-4 font-semibold text-emerald-600">{efectivoUSD > 0 ? formatMoney(efectivoUSD, 'USD') : '-'}</td>
+                      <td className="p-4 font-semibold">{formatMoney(efectivoImp)}</td>
+                      <td className="p-4 font-bold">{formatMoney(efectivoARS + efectivoImp)}</td>
+                    </tr>
+                  )
+                }
+              })()}
+
+              {/* Tarjetas */}
               {tarjetas.length > 0 ? tarjetas.map(t => {
                 const gT = gastosMes.filter(g => g.tarjeta_id === t.id)
                 const iT = impuestosMes.filter(i => i.tarjeta_id === t.id)
@@ -498,6 +538,23 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Month Alert Modal */}
+      <AlertModal
+        isOpen={showMonthAlert}
+        onClose={() => {
+          setShowMonthAlert(false)
+          // Optionally navigate to current month
+          const today = new Date()
+          const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
+          if (monthKey !== todayKey) {
+            // User can manually go to current month if they want
+          }
+        }}
+        title="📅 Estás viendo un mes anterior"
+        message={`Estás revisando ${getMonthName(currentMonth)}.\n\n¿Querés ir al mes actual?`}
+        variant="info"
+      />
     </div>
   )
 }

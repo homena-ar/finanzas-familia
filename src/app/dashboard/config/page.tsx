@@ -360,7 +360,7 @@ export default function ConfigPage() {
                     <button
                       key={icon}
                       onClick={() => setCategoriaForm(f => ({ ...f, icono: icon }))}
-                      className={`p-3 text-2xl rounded-lg border-2 transition ${
+                      className={`p-3 text-2xl rounded-lg border-2 transition flex items-center justify-center ${
                         categoriaForm.icono === icon
                           ? 'border-indigo-500 bg-indigo-50'
                           : 'border-slate-200 hover:border-slate-300'

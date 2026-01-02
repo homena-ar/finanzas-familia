@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useData } from '@/hooks/useData'
 import { Plus, Edit2, Trash2, X, CreditCard } from 'lucide-react'
 import { Tarjeta } from '@/types'
+import { ConfirmModal, AlertModal } from '@/components/Modal'
 
 function getCardGradient(tipo: string): string {
   const gradients: Record<string, string> = {
@@ -23,6 +24,12 @@ export default function TarjetasPage() {
   const [form, setForm] = useState({
     nombre: '', tipo: 'visa', banco: '', digitos: '', cierre: ''
   })
+
+  // Modal states
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false)
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
+  const [showAlert, setShowAlert] = useState(false)
+  const [alertData, setAlertData] = useState({ title: '', message: '', variant: 'info' as 'success' | 'error' | 'warning' | 'info' })
 
   console.log('💳 [TarjetasPage] Render - loading:', loading)
 
@@ -44,7 +51,12 @@ export default function TarjetasPage() {
 
   const handleSave = async () => {
     if (!form.nombre) {
-      alert('El nombre es requerido')
+      setAlertData({
+        title: 'Campo requerido',
+        message: 'El nombre de la tarjeta es requerido',
+        variant: 'warning'
+      })
+      setShowAlert(true)
       return
     }
 
@@ -63,13 +75,27 @@ export default function TarjetasPage() {
         const { error } = await updateTarjeta(editing.id, data)
         if (error) {
           console.error('Error updating:', error)
-          alert('Error al actualizar: ' + error.message)
+          setAlertData({
+            title: 'Error al actualizar',
+            message: error.message,
+            variant: 'error'
+          })
+          setShowAlert(true)
+          setSaving(false)
+          return
         }
       } else {
         const { error } = await addTarjeta(data)
         if (error) {
           console.error('Error adding:', error)
-          alert('Error al agregar: ' + error.message)
+          setAlertData({
+            title: 'Error al agregar',
+            message: error.message,
+            variant: 'error'
+          })
+          setShowAlert(true)
+          setSaving(false)
+          return
         }
       }
 
@@ -78,19 +104,36 @@ export default function TarjetasPage() {
       resetForm()
     } catch (err) {
       console.error('Exception:', err)
-      alert('Error inesperado')
+      setAlertData({
+        title: 'Error inesperado',
+        message: 'Ocurrió un error al guardar la tarjeta',
+        variant: 'error'
+      })
+      setShowAlert(true)
     }
 
     setSaving(false)
   }
 
-  const handleDelete = async (id: string) => {
-    if (confirm('¿Eliminar esta tarjeta? Los gastos asociados quedarán sin tarjeta.')) {
-      const { error } = await deleteTarjeta(id)
-      if (error) {
-        alert('Error al eliminar: ' + error.message)
-      }
+  const handleDelete = (id: string) => {
+    setDeleteTargetId(id)
+    setShowConfirmDelete(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTargetId) return
+
+    const { error } = await deleteTarjeta(deleteTargetId)
+    if (error) {
+      setAlertData({
+        title: 'Error al eliminar',
+        message: error.message,
+        variant: 'error'
+      })
+      setShowAlert(true)
     }
+
+    setDeleteTargetId(null)
   }
 
   if (loading) {
@@ -288,6 +331,30 @@ export default function TarjetasPage() {
           </div>
         </div>
       )}
+
+      {/* Confirm Delete Modal */}
+      <ConfirmModal
+        isOpen={showConfirmDelete}
+        onClose={() => {
+          setShowConfirmDelete(false)
+          setDeleteTargetId(null)
+        }}
+        onConfirm={confirmDelete}
+        title="¿Eliminar tarjeta?"
+        message="Los gastos asociados a esta tarjeta quedarán sin tarjeta (Efectivo)."
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        variant="danger"
+      />
+
+      {/* Alert Modal */}
+      <AlertModal
+        isOpen={showAlert}
+        onClose={() => setShowAlert(false)}
+        title={alertData.title}
+        message={alertData.message}
+        variant={alertData.variant}
+      />
     </div>
   )
 }

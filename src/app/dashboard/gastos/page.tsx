@@ -238,6 +238,14 @@ export default function GastosPage() {
           </select>
           <select
             className="input w-auto"
+            value={filters.tag}
+            onChange={e => setFilters(f => ({ ...f, tag: e.target.value }))}
+          >
+            <option value="">Todos los tags</option>
+            {tags.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+          </select>
+          <select
+            className="input w-auto"
             value={filters.sort}
             onChange={e => setFilters(f => ({ ...f, sort: e.target.value }))}
           >
@@ -289,6 +297,18 @@ export default function GastosPage() {
                             {categoriaMap[g.categoria_id || '']?.nombre || 'Sin categoría'}
                             {g.es_fijo && ' 📌'}
                           </div>
+                          {g.tag_ids && g.tag_ids.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {g.tag_ids.map(tagId => {
+                                const tag = tags.find(t => t.id === tagId)
+                                return tag ? (
+                                  <span key={tagId} className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs font-semibold">
+                                    {tag.nombre}
+                                  </span>
+                                ) : null
+                              })}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </td>
