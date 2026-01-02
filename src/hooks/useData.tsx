@@ -99,7 +99,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           tipo: data.tipo,
           monto: data.monto,
           user_id: data.user_id,
-          created_at: data.created_at instanceof Timestamp
+          fecha: data.created_at instanceof Timestamp
             ? data.created_at.toDate().toISOString()
             : data.created_at
         }
