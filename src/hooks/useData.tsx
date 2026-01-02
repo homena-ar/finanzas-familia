@@ -194,6 +194,77 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       console.log('📊 [Firebase useData] Gastos result:', gastosData.length, 'rows')
 
+      // Fetch impuestos
+      const impuestosRef = collection(db, 'impuestos')
+      const impuestosQuery = query(
+        impuestosRef,
+        where('user_id', '==', user.uid),
+        orderBy('created_at', 'desc')
+      )
+      const impuestosSnap = await getDocs(impuestosQuery)
+      const impuestosData = impuestosSnap.docs.map(doc => {
+        const data = doc.data()
+        return {
+          id: doc.id,
+          user_id: data.user_id,
+          tarjeta_id: data.tarjeta_id || null,
+          descripcion: data.descripcion,
+          monto: data.monto,
+          mes: data.mes,
+          created_at: data.created_at instanceof Timestamp
+            ? data.created_at.toDate().toISOString()
+            : data.created_at
+        }
+      }) as Impuesto[]
+
+      console.log('📊 [Firebase useData] Impuestos result:', impuestosData.length, 'rows')
+
+      // Fetch categorias
+      const categoriasRef = collection(db, 'categorias')
+      const categoriasQuery = query(
+        categoriasRef,
+        where('user_id', '==', user.uid),
+        orderBy('created_at', 'desc')
+      )
+      const categoriasSnap = await getDocs(categoriasQuery)
+      const categoriasData = categoriasSnap.docs.map(doc => {
+        const data = doc.data()
+        return {
+          id: doc.id,
+          user_id: data.user_id,
+          nombre: data.nombre,
+          icono: data.icono,
+          color: data.color,
+          created_at: data.created_at instanceof Timestamp
+            ? data.created_at.toDate().toISOString()
+            : data.created_at
+        }
+      }) as Categoria[]
+
+      console.log('📊 [Firebase useData] Categorias result:', categoriasData.length, 'rows')
+
+      // Fetch tags
+      const tagsRef = collection(db, 'tags')
+      const tagsQuery = query(
+        tagsRef,
+        where('user_id', '==', user.uid),
+        orderBy('created_at', 'desc')
+      )
+      const tagsSnap = await getDocs(tagsQuery)
+      const tagsData = tagsSnap.docs.map(doc => {
+        const data = doc.data()
+        return {
+          id: doc.id,
+          user_id: data.user_id,
+          nombre: data.nombre,
+          created_at: data.created_at instanceof Timestamp
+            ? data.created_at.toDate().toISOString()
+            : data.created_at
+        }
+      }) as Tag[]
+
+      console.log('📊 [Firebase useData] Tags result:', tagsData.length, 'rows')
+
       const endTime = Date.now()
       console.log('📊 [Firebase useData] Data fetched successfully in', endTime - startTime, 'ms')
 
@@ -201,6 +272,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setMetas(metasData)
       setTarjetas(tarjetasData)
       setGastos(gastosData)
+      setImpuestos(impuestosData)
+      setCategorias(categoriasData)
+      setTags(tagsData)
       setLoading(false)
     } catch (error) {
       console.error('📊 [Firebase useData] Error fetching data:', error)
@@ -333,14 +407,54 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [user, fetchAll])
 
   const addTag = useCallback(async (nombre: string) => {
-    console.log('⚠️ [Firebase] addTag not implemented yet')
-    return { error: new Error('Not implemented') }
-  }, [])
+    if (!user) {
+      console.error('🏷️ [Firebase addTag] No user!')
+      return { error: new Error('No user') }
+    }
+
+    console.log('🏷️ [Firebase addTag] called', nombre)
+
+    try {
+      const insertData = {
+        nombre,
+        user_id: user.uid,
+        created_at: serverTimestamp()
+      }
+
+      const tagsRef = collection(db, 'tags')
+      await addDoc(tagsRef, insertData)
+
+      console.log('🏷️ [Firebase addTag] SUCCESS - Calling fetchAll')
+      await fetchAll()
+
+      return { error: null }
+    } catch (error) {
+      console.error('🏷️ [Firebase addTag] ERROR:', error)
+      return { error }
+    }
+  }, [user, fetchAll])
 
   const deleteTag = useCallback(async (id: string) => {
-    console.log('⚠️ [Firebase] deleteTag not implemented yet')
-    return { error: new Error('Not implemented') }
-  }, [])
+    if (!user) {
+      console.error('🏷️ [Firebase deleteTag] No user!')
+      return { error: new Error('No user') }
+    }
+
+    console.log('🏷️ [Firebase deleteTag] called', id)
+
+    try {
+      const tagRef = doc(db, 'tags', id)
+      await deleteDoc(tagRef)
+
+      console.log('🏷️ [Firebase deleteTag] SUCCESS - Calling fetchAll')
+      await fetchAll()
+
+      return { error: null }
+    } catch (error) {
+      console.error('🏷️ [Firebase deleteTag] ERROR:', error)
+      return { error }
+    }
+  }, [user, fetchAll])
 
   const addGasto = useCallback(async (data: any) => {
     if (!user) {
@@ -487,19 +601,76 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [user, fetchAll])
 
   const addImpuesto = useCallback(async (data: any) => {
-    console.log('⚠️ [Firebase] addImpuesto not implemented yet')
-    return { error: new Error('Not implemented') }
-  }, [])
+    if (!user) {
+      console.error('🧾 [Firebase addImpuesto] No user!')
+      return { error: new Error('No user') }
+    }
+
+    console.log('🧾 [Firebase addImpuesto] called', data)
+
+    try {
+      const insertData = {
+        ...data,
+        user_id: user.uid,
+        created_at: serverTimestamp()
+      }
+
+      const impuestosRef = collection(db, 'impuestos')
+      await addDoc(impuestosRef, insertData)
+
+      console.log('🧾 [Firebase addImpuesto] SUCCESS - Calling fetchAll')
+      await fetchAll()
+
+      return { error: null }
+    } catch (error) {
+      console.error('🧾 [Firebase addImpuesto] ERROR:', error)
+      return { error }
+    }
+  }, [user, fetchAll])
 
   const updateImpuesto = useCallback(async (id: string, data: any) => {
-    console.log('⚠️ [Firebase] updateImpuesto not implemented yet')
-    return { error: new Error('Not implemented') }
-  }, [])
+    if (!user) {
+      console.error('🧾 [Firebase updateImpuesto] No user!')
+      return { error: new Error('No user') }
+    }
+
+    console.log('🧾 [Firebase updateImpuesto] called', id, data)
+
+    try {
+      const impuestoRef = doc(db, 'impuestos', id)
+      await updateDoc(impuestoRef, data)
+
+      console.log('🧾 [Firebase updateImpuesto] SUCCESS - Calling fetchAll')
+      await fetchAll()
+
+      return { error: null }
+    } catch (error) {
+      console.error('🧾 [Firebase updateImpuesto] ERROR:', error)
+      return { error }
+    }
+  }, [user, fetchAll])
 
   const deleteImpuesto = useCallback(async (id: string) => {
-    console.log('⚠️ [Firebase] deleteImpuesto not implemented yet')
-    return { error: new Error('Not implemented') }
-  }, [])
+    if (!user) {
+      console.error('🧾 [Firebase deleteImpuesto] No user!')
+      return { error: new Error('No user') }
+    }
+
+    console.log('🧾 [Firebase deleteImpuesto] called', id)
+
+    try {
+      const impuestoRef = doc(db, 'impuestos', id)
+      await deleteDoc(impuestoRef)
+
+      console.log('🧾 [Firebase deleteImpuesto] SUCCESS - Calling fetchAll')
+      await fetchAll()
+
+      return { error: null }
+    } catch (error) {
+      console.error('🧾 [Firebase deleteImpuesto] ERROR:', error)
+      return { error }
+    }
+  }, [user, fetchAll])
 
   const getGastosMes = useCallback((mes: string) => {
     console.log('📊 [Firebase getGastosMes] called - mes:', mes, 'total gastos:', gastos.length)
