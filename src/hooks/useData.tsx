@@ -375,9 +375,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, [user, fetchAll])
 
-  // Stub functions for features not migrated yet
   const changeMonth = useCallback((delta: number) => {
-    console.log('⚠️ [Firebase] changeMonth not implemented yet')
+    console.log('📅 [Firebase] changeMonth called with delta:', delta)
+    setCurrentMonth(prev => {
+      const newDate = new Date(prev)
+      newDate.setMonth(newDate.getMonth() + delta)
+      console.log('📅 [Firebase] Changed month from', prev.toISOString().slice(0, 7), 'to', newDate.toISOString().slice(0, 7))
+      return newDate
+    })
   }, [])
 
   const addMeta = useCallback(async (data: any) => {
@@ -721,7 +726,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const getGastosMes = useCallback((mes: string) => {
     console.log('📊 [Firebase getGastosMes] called - mes:', mes, 'total gastos:', gastos.length)
-    return gastos.filter(g => g.mes_facturacion === mes)
+
+    return gastos.filter(g => {
+      // Si es un gasto del mes exacto (coincide mes_facturacion)
+      if (g.mes_facturacion === mes) return true
+
+      // Si es fijo y fue creado antes de este mes, incluirlo en todos los meses siguientes
+      if (g.es_fijo && g.mes_facturacion < mes) return true
+
+      // Si tiene cuotas, verificar si está en el rango de cuotas
+      if (g.cuotas > 1 && !g.es_fijo) {
+        const start = new Date(g.mes_facturacion + '-01')
+        const current = new Date(mes + '-01')
+        const diff = (current.getFullYear() - start.getFullYear()) * 12 + current.getMonth() - start.getMonth()
+        if (diff >= 0 && diff < g.cuotas) return true
+      }
+
+      return false
+    })
   }, [gastos])
 
   const getImpuestosMes = useCallback((mes: string) => {

@@ -108,7 +108,7 @@ export default function DashboardPage() {
   // Budget check (solo si está habilitado)
   const budgetARS = profile?.budget_ars || 0
   const hasBudget = budgetARS > 0
-  const budgetPct = hasBudget ? (totalARS / budgetARS) * 100 : 0
+  const budgetPct = hasBudget ? (totalPagar / budgetARS) * 100 : 0
   const budgetStatus = budgetPct >= 100 ? 'danger' : budgetPct >= 80 ? 'warning' : 'ok'
 
   // Alertas
@@ -132,7 +132,7 @@ export default function DashboardPage() {
       type: budgetPct >= 100 ? 'danger' : 'warning',
       icon: '💸',
       title: budgetPct >= 100 ? '¡Presupuesto excedido!' : 'Cerca del límite',
-      desc: `${formatMoney(totalARS)} / ${formatMoney(budgetARS)}`
+      desc: `${formatMoney(totalPagar)} / ${formatMoney(budgetARS)}`
     })
   }
 
@@ -206,15 +206,15 @@ export default function DashboardPage() {
           <div className="grid grid-cols-3 gap-4 mb-4">
             <div>
               <div className="text-sm opacity-80">Gastado</div>
-              <div className="text-xl font-bold">{formatMoney(totalARS)}</div>
+              <div className="text-xl font-bold">{formatMoney(totalPagar)}</div>
             </div>
             <div>
               <div className="text-sm opacity-80">Límite</div>
               <div className="text-xl font-bold">{formatMoney(budgetARS)}</div>
             </div>
             <div>
-              <div className="text-sm opacity-80">{budgetARS - totalARS >= 0 ? 'Disponible' : 'Excedido'}</div>
-              <div className="text-xl font-bold">{formatMoney(Math.abs(budgetARS - totalARS))}</div>
+              <div className="text-sm opacity-80">{budgetARS - totalPagar >= 0 ? 'Disponible' : 'Excedido'}</div>
+              <div className="text-xl font-bold">{formatMoney(Math.abs(budgetARS - totalPagar))}</div>
             </div>
           </div>
           <div className="bg-white/20 h-3 rounded-full overflow-hidden">
