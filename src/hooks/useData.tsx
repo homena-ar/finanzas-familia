@@ -243,6 +243,53 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       console.log('📊 [Firebase useData] Categorias result:', categoriasData.length, 'rows')
 
+      // Si no hay categorías, crear las estándar automáticamente
+      if (categoriasData.length === 0) {
+        console.log('📂 [Firebase useData] No categories found - Creating default categories')
+
+        const defaultCategorias = [
+          { nombre: 'Comida', icono: '🍔', color: '#f97316' },
+          { nombre: 'Hogar', icono: '🏠', color: '#3b82f6' },
+          { nombre: 'Transporte', icono: '🚗', color: '#10b981' },
+          { nombre: 'Entretenimiento', icono: '🎮', color: '#8b5cf6' },
+          { nombre: 'Ropa', icono: '👕', color: '#ec4899' },
+          { nombre: 'Salud', icono: '💊', color: '#ef4444' },
+          { nombre: 'Educación', icono: '📚', color: '#06b6d4' },
+          { nombre: 'Otros', icono: '💰', color: '#6b7280' }
+        ]
+
+        const categoriasRef = collection(db, 'categorias')
+        for (const categoria of defaultCategorias) {
+          await addDoc(categoriasRef, {
+            ...categoria,
+            user_id: user.uid,
+            created_at: serverTimestamp()
+          })
+        }
+
+        console.log('✅ [Firebase useData] Default categories created - Fetching again')
+
+        // Volver a obtener las categorías
+        const categoriasSnapNew = await getDocs(categoriasQuery)
+        const categoriasDataNew = categoriasSnapNew.docs.map(doc => {
+          const data = doc.data()
+          return {
+            id: doc.id,
+            user_id: data.user_id,
+            nombre: data.nombre,
+            icono: data.icono,
+            color: data.color,
+            created_at: data.created_at instanceof Timestamp
+              ? data.created_at.toDate().toISOString()
+              : data.created_at
+          }
+        }) as Categoria[]
+
+        categoriasData.length = 0
+        categoriasData.push(...categoriasDataNew)
+        console.log('📊 [Firebase useData] Categorias after creation:', categoriasData.length, 'rows')
+      }
+
       // Fetch tags
       const tagsRef = collection(db, 'tags')
       const tagsQuery = query(
@@ -328,9 +375,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, [user, fetchAll])
 
-  // Stub functions for features not migrated yet
   const changeMonth = useCallback((delta: number) => {
-    console.log('⚠️ [Firebase] changeMonth not implemented yet')
+    console.log('📅 [Firebase] changeMonth called with delta:', delta)
+    setCurrentMonth(prev => {
+      const newDate = new Date(prev)
+      newDate.setMonth(newDate.getMonth() + delta)
+      console.log('📅 [Firebase] Changed month from', prev.toISOString().slice(0, 7), 'to', newDate.toISOString().slice(0, 7))
+      return newDate
+    })
   }, [])
 
   const addMeta = useCallback(async (data: any) => {
@@ -674,7 +726,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const getGastosMes = useCallback((mes: string) => {
     console.log('📊 [Firebase getGastosMes] called - mes:', mes, 'total gastos:', gastos.length)
-    return gastos.filter(g => g.mes_facturacion === mes)
+
+    return gastos.filter(g => {
+      // Si es un gasto del mes exacto (coincide mes_facturacion)
+      if (g.mes_facturacion === mes) return true
+
+      // Si es fijo y fue creado antes de este mes, incluirlo en todos los meses siguientes
+      if (g.es_fijo && g.mes_facturacion < mes) return true
+
+      // Si tiene cuotas, verificar si está en el rango de cuotas
+      if (g.cuotas > 1 && !g.es_fijo) {
+        const start = new Date(g.mes_facturacion + '-01')
+        const current = new Date(mes + '-01')
+        const diff = (current.getFullYear() - start.getFullYear()) * 12 + current.getMonth() - start.getMonth()
+        if (diff >= 0 && diff < g.cuotas) return true
+      }
+
+      return false
+    })
   }, [gastos])
 
   const getImpuestosMes = useCallback((mes: string) => {
