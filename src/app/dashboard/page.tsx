@@ -577,7 +577,17 @@ export default function DashboardPage() {
                 Estos gastos no aparecerán en {getMonthName(nextMonth)}:
               </p>
               <div className="space-y-2">
-                {gastosTerminan.map(g => {
+                {gastosTerminan
+                  .sort((a, b) => {
+                    // Primero ordenar por moneda: USD primero
+                    if (a.moneda === 'USD' && b.moneda !== 'USD') return -1
+                    if (a.moneda !== 'USD' && b.moneda === 'USD') return 1
+                    // Luego por monto de mayor a menor
+                    const montoA = a.cuotas > 1 ? a.monto / a.cuotas : a.monto
+                    const montoB = b.cuotas > 1 ? b.monto / b.cuotas : b.monto
+                    return montoB - montoA
+                  })
+                  .map(g => {
                   const monto = g.cuotas > 1 ? g.monto / g.cuotas : g.monto
                   return (
                     <div key={g.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-lg">

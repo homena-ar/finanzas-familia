@@ -195,24 +195,28 @@ export default function TarjetasPage() {
             </div>
             
             {/* Actions */}
-            <div className="absolute top-3 right-3 flex gap-1 z-10">
+            <div className="absolute top-3 right-3 flex gap-2 z-10">
               <button
                 onClick={(e) => {
                   e.stopPropagation()
                   openEdit(t)
                 }}
-                className="w-8 h-8 bg-white/20 backdrop-blur rounded-lg flex items-center justify-center hover:bg-white/30 transition"
+                className="px-3 py-2 bg-white/20 backdrop-blur rounded-lg flex items-center gap-1 hover:bg-white/30 transition"
+                title="Editar tarjeta"
               >
                 <Edit2 className="w-4 h-4" />
+                <span className="text-xs font-medium hidden sm:inline">Editar</span>
               </button>
               <button
                 onClick={(e) => {
                   e.stopPropagation()
                   handleDelete(t.id)
                 }}
-                className="w-8 h-8 bg-white/20 backdrop-blur rounded-lg flex items-center justify-center hover:bg-white/30 transition"
+                className="px-3 py-2 bg-white/20 backdrop-blur rounded-lg flex items-center gap-1 hover:bg-white/30 transition"
+                title="Eliminar tarjeta"
               >
                 <Trash2 className="w-4 h-4" />
+                <span className="text-xs font-medium hidden sm:inline">Borrar</span>
               </button>
             </div>
             
