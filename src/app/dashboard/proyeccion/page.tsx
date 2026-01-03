@@ -22,17 +22,26 @@ export default function ProyeccionPage() {
   for (let i = 0; i < 6; i++) {
     const mes = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + i, 1)
     const mesKey = `${mes.getFullYear()}-${String(mes.getMonth() + 1).padStart(2, '0')}`
-    
-    let total = 0
+
+    // Empezar con los gastos fijos
+    let totalARS = totalFijosARS
+    let totalUSD = totalFijosUSD
+
+    // Sumar las cuotas correspondientes a este mes
     cuotas.forEach(g => {
       const start = new Date(g.mes_facturacion + '-01')
       const diff = (mes.getFullYear() - start.getFullYear()) * 12 + mes.getMonth() - start.getMonth()
-      if (diff >= 0 && diff < g.cuotas && g.moneda === 'ARS') {
-        total += g.monto / g.cuotas
+      if (diff >= 0 && diff < g.cuotas) {
+        const cuotaMonto = g.monto / g.cuotas
+        if (g.moneda === 'USD') {
+          totalUSD += cuotaMonto
+        } else {
+          totalARS += cuotaMonto
+        }
       }
     })
-    
-    proyeccion.push({ mes, mesKey, total })
+
+    proyeccion.push({ mes, mesKey, totalARS, totalUSD })
   }
 
   return (
@@ -45,12 +54,19 @@ export default function ProyeccionPage() {
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Próximos 6 meses */}
         <div className="card p-5">
-          <h3 className="font-bold mb-4">📅 Próximos 6 Meses</h3>
+          <h3 className="font-bold mb-4">📅 Próximos 6 Meses (con gastos fijos)</h3>
           <div className="space-y-2">
             {proyeccion.map(p => (
-              <div key={p.mesKey} className="flex justify-between items-center py-3 border-b border-slate-100 last:border-0">
-                <span className="text-slate-600">{getMonthName(p.mes)}</span>
-                <span className="font-bold">{formatMoney(p.total)}</span>
+              <div key={p.mesKey} className="py-3 border-b border-slate-100 last:border-0">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-slate-600 font-medium">{getMonthName(p.mes)}</span>
+                  <span className="font-bold">{formatMoney(p.totalARS)}</span>
+                </div>
+                {p.totalUSD > 0 && (
+                  <div className="flex justify-end">
+                    <span className="text-sm text-emerald-600 font-semibold">+ {formatMoney(p.totalUSD, 'USD')}</span>
+                  </div>
+                )}
               </div>
             ))}
           </div>
