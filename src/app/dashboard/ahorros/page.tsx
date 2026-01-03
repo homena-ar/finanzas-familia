@@ -197,14 +197,11 @@ export default function AhorrosPage() {
     setIsDeleting(true)
     setDeleteProgress(0)
 
-    // Calcular el total a restar
-    const totalToSubtract = movimientosToDelete.reduce((sum, m) => sum + m.monto, 0)
     const field = currentTipo === 'pesos' ? 'ahorro_pesos' : 'ahorro_usd'
-    const currentValue = currentTipo === 'pesos' ? ahorroPesos : ahorroUsd
-    const newValue = Math.max(0, currentValue - totalToSubtract)
 
-    // Actualizar el patrimonio
-    await updateProfile({ [field]: newValue })
+    // Al eliminar TODOS los movimientos, poner patrimonio en 0
+    // Esto corrige cualquier desincronización entre profile y movimientos
+    await updateProfile({ [field]: 0 })
 
     // Eliminar todos los movimientos con progreso
     for (let i = 0; i < movimientosToDelete.length; i++) {
