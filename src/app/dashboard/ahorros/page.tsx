@@ -4,9 +4,33 @@ import { useState, useEffect } from 'react'
 import { useData } from '@/hooks/useData'
 import { useAuth } from '@/hooks/useAuth'
 import { formatMoney, fetchDolar } from '@/lib/utils'
-import { Plus, Minus, Target, X, Edit2, Trash2 } from 'lucide-react'
+import { Plus, Minus, Target, X, Edit2, Trash2, Download, TrendingUp } from 'lucide-react'
 import confetti from 'canvas-confetti'
 import { Meta } from '@/types'
+import * as XLSX from 'xlsx'
+import { Line } from 'react-chartjs-2'
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+} from 'chart.js'
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+)
 
 export default function AhorrosPage() {
   console.log('🟢🟢🟢 [AhorrosPage] COMPONENT RENDER')
@@ -28,6 +52,10 @@ export default function AhorrosPage() {
   const [descUsd, setDescUsd] = useState('')
   const [showMovimientosModal, setShowMovimientosModal] = useState(false)
   const [currentTipo, setCurrentTipo] = useState<'pesos' | 'usd'>('pesos')
+  const [editingMovimiento, setEditingMovimiento] = useState<any>(null)
+  const [editForm, setEditForm] = useState({ monto: '', descripcion: '' })
+  const [filterFecha, setFilterFecha] = useState('')
+  const [showChart, setShowChart] = useState(false)
 
   useEffect(() => {
     fetchDolar()
@@ -119,10 +147,122 @@ export default function AhorrosPage() {
   const addToMeta = async (meta: Meta, amount: number) => {
     const newProgreso = meta.progreso + amount
     await updateMeta(meta.id, { progreso: newProgreso })
-    
+
     if (newProgreso >= meta.objetivo && !meta.completada) {
       await updateMeta(meta.id, { completada: true })
       confetti({ particleCount: 100, spread: 70 })
+    }
+  }
+
+  const handleSaveEditMovimiento = async () => {
+    if (!editingMovimiento || !editForm.monto) return
+
+    const newMonto = parseFloat(editForm.monto)
+    if (isNaN(newMonto) || newMonto <= 0) return
+
+    // Mantener el signo original (positivo o negativo)
+    const finalMonto = editingMovimiento.monto < 0 ? -newMonto : newMonto
+
+    await updateMovimiento(editingMovimiento.id, {
+      monto: finalMonto,
+      descripcion: editForm.descripcion || undefined
+    })
+
+    setEditingMovimiento(null)
+    setEditForm({ monto: '', descripcion: '' })
+  }
+
+  const exportToExcel = () => {
+    const filteredMovimientos = movimientos
+      .filter(m => m.tipo === currentTipo)
+      .filter(m => {
+        if (!filterFecha) return true
+        const movFecha = new Date(m.fecha)
+        const [year, month] = filterFecha.split('-')
+        return movFecha.getFullYear() === parseInt(year) &&
+               movFecha.getMonth() === parseInt(month) - 1
+      })
+      .map(m => ({
+        Fecha: new Date(m.fecha).toLocaleDateString('es-AR'),
+        Tipo: m.monto > 0 ? 'Agregar' : 'Quitar',
+        Monto: Math.abs(m.monto),
+        Descripción: m.descripcion || '',
+        Moneda: currentTipo === 'pesos' ? 'ARS' : 'USD'
+      }))
+
+    const ws = XLSX.utils.json_to_sheet(filteredMovimientos)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Movimientos')
+
+    const fileName = `movimientos_${currentTipo}_${new Date().toISOString().split('T')[0]}.xlsx`
+    XLSX.writeFile(wb, fileName)
+  }
+
+  const prepareChartData = () => {
+    const movimientosPesos = movimientos
+      .filter(m => m.tipo === 'pesos')
+      .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
+
+    const movimientosUsd = movimientos
+      .filter(m => m.tipo === 'usd')
+      .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
+
+    let balancePesos = 0
+    let balanceUsd = 0
+
+    const dataPointsPesos = movimientosPesos.map(m => {
+      balancePesos += m.monto
+      return {
+        x: new Date(m.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }),
+        y: balancePesos
+      }
+    })
+
+    const dataPointsUsd = movimientosUsd.map(m => {
+      balanceUsd += m.monto
+      return {
+        x: new Date(m.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }),
+        y: balanceUsd
+      }
+    })
+
+    // Agregar punto actual
+    if (dataPointsPesos.length > 0) {
+      dataPointsPesos.push({
+        x: 'Ahora',
+        y: ahorroPesos
+      })
+    }
+
+    if (dataPointsUsd.length > 0) {
+      dataPointsUsd.push({
+        x: 'Ahora',
+        y: ahorroUsd
+      })
+    }
+
+    return {
+      labels: dataPointsPesos.length >= dataPointsUsd.length
+        ? dataPointsPesos.map(p => p.x)
+        : dataPointsUsd.map(p => p.x),
+      datasets: [
+        {
+          label: 'Pesos',
+          data: dataPointsPesos.map(p => p.y),
+          borderColor: 'rgb(99, 102, 241)',
+          backgroundColor: 'rgba(99, 102, 241, 0.1)',
+          fill: true,
+          tension: 0.4
+        },
+        {
+          label: 'Dólares',
+          data: dataPointsUsd.map(p => p.y),
+          borderColor: 'rgb(16, 185, 129)',
+          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+          fill: true,
+          tension: 0.4
+        }
+      ]
     }
   }
 
@@ -138,7 +278,7 @@ export default function AhorrosPage() {
       {/* Patrimonio Hero - SEPARADO */}
       <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500 rounded-2xl p-6 text-white">
         <div className="text-sm opacity-80 mb-4">💰 Patrimonio Total</div>
-        
+
         {/* Valores separados */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
           <div className="bg-white/10 rounded-xl p-4">
@@ -158,11 +298,68 @@ export default function AhorrosPage() {
             <div className="text-xl font-bold">{formatMoney(patrimonioEnUsd, 'USD')}</div>
           </div>
         </div>
-        
+
         <div className="text-xs opacity-60 text-center">
           Cotización: {formatMoney(dolar)} por dólar
         </div>
       </div>
+
+      {/* Gráfico de Evolución */}
+      {movimientos.length > 0 && (
+        <div className="card p-5">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="font-bold text-lg flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-indigo-600" />
+              Evolución de Ahorros
+            </h3>
+            <button
+              onClick={() => setShowChart(!showChart)}
+              className="btn btn-secondary text-sm"
+            >
+              {showChart ? 'Ocultar' : 'Ver gráfico'}
+            </button>
+          </div>
+          {showChart && (
+            <div className="mt-4">
+              <Line
+                data={prepareChartData()}
+                options={{
+                  responsive: true,
+                  plugins: {
+                    legend: {
+                      position: 'top' as const,
+                    },
+                    tooltip: {
+                      callbacks: {
+                        label: function(context) {
+                          let label = context.dataset.label || '';
+                          if (label) {
+                            label += ': ';
+                          }
+                          if (context.parsed.y !== null) {
+                            label += formatMoney(context.parsed.y, context.datasetIndex === 1 ? 'USD' : 'ARS');
+                          }
+                          return label;
+                        }
+                      }
+                    }
+                  },
+                  scales: {
+                    y: {
+                      beginAtZero: true,
+                      ticks: {
+                        callback: function(value) {
+                          return formatMoney(value as number);
+                        }
+                      }
+                    }
+                  }
+                }}
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Savings Cards */}
       <div className="grid md:grid-cols-2 gap-6">
@@ -477,13 +674,51 @@ export default function AhorrosPage() {
               <h3 className="font-bold text-lg">
                 Historial de {currentTipo === 'pesos' ? 'Pesos' : 'Dólares'}
               </h3>
-              <button onClick={() => setShowMovimientosModal(false)} className="p-1 hover:bg-slate-100 rounded">
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={exportToExcel}
+                  className="btn btn-secondary text-sm"
+                  title="Exportar a Excel"
+                >
+                  <Download className="w-4 h-4" />
+                  Excel
+                </button>
+                <button onClick={() => setShowMovimientosModal(false)} className="p-1 hover:bg-slate-100 rounded">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="p-4 border-b border-slate-200">
+              <label className="label text-xs">Filtrar por mes</label>
+              <div className="flex gap-2">
+                <input
+                  type="month"
+                  className="input text-sm"
+                  value={filterFecha}
+                  onChange={e => setFilterFecha(e.target.value)}
+                />
+                {filterFecha && (
+                  <button
+                    onClick={() => setFilterFecha('')}
+                    className="btn btn-secondary text-sm"
+                  >
+                    Limpiar
+                  </button>
+                )}
+              </div>
             </div>
             <div className="p-4 max-h-96 overflow-y-auto">
               <div className="space-y-2">
-                {movimientos.filter(m => m.tipo === currentTipo).map(m => (
+                {movimientos
+                  .filter(m => m.tipo === currentTipo)
+                  .filter(m => {
+                    if (!filterFecha) return true
+                    const movFecha = new Date(m.fecha)
+                    const [year, month] = filterFecha.split('-')
+                    return movFecha.getFullYear() === parseInt(year) &&
+                           movFecha.getMonth() === parseInt(month) - 1
+                  })
+                  .map(m => (
                   <div key={m.id} className="flex items-center justify-between p-3 border border-slate-200 rounded-lg hover:bg-slate-50">
                     <div className="flex-1">
                       <div className="text-sm font-medium">{new Date(m.fecha).toLocaleDateString('es-AR', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</div>
@@ -493,6 +728,18 @@ export default function AhorrosPage() {
                       <span className={`font-bold ${m.monto > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                         {m.monto > 0 ? '+' : ''}{formatMoney(m.monto, currentTipo === 'usd' ? 'USD' : 'ARS')}
                       </span>
+                      <button
+                        onClick={() => {
+                          setEditingMovimiento(m)
+                          setEditForm({
+                            monto: String(Math.abs(m.monto)),
+                            descripcion: m.descripcion || ''
+                          })
+                        }}
+                        className="p-2 hover:bg-blue-50 rounded-lg text-blue-500"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
                       <button
                         onClick={() => {
                           if (confirm('¿Eliminar este movimiento?')) {
@@ -507,6 +754,51 @@ export default function AhorrosPage() {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Editar Movimiento */}
+      {editingMovimiento && (
+        <div className="modal-overlay" onClick={() => setEditingMovimiento(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+              <h3 className="font-bold text-lg">Editar Movimiento</h3>
+              <button onClick={() => setEditingMovimiento(null)} className="p-1 hover:bg-slate-100 rounded">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="label">Tipo</label>
+                <div className="text-sm text-slate-600">
+                  {editingMovimiento.monto > 0 ? '➕ Agregar' : '➖ Quitar'} {editingMovimiento.tipo === 'pesos' ? 'Pesos' : 'Dólares'}
+                </div>
+              </div>
+              <div>
+                <label className="label">Monto</label>
+                <input
+                  type="number"
+                  className="input"
+                  placeholder="0"
+                  value={editForm.monto}
+                  onChange={e => setEditForm(f => ({ ...f, monto: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="label">Descripción</label>
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="Opcional"
+                  value={editForm.descripcion}
+                  onChange={e => setEditForm(f => ({ ...f, descripcion: e.target.value }))}
+                />
+              </div>
+              <button onClick={handleSaveEditMovimiento} className="btn btn-primary w-full justify-center">
+                Guardar Cambios
+              </button>
             </div>
           </div>
         </div>
