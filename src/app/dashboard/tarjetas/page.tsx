@@ -187,15 +187,15 @@ export default function TarjetasPage() {
             }}
           >
             {/* Decorative circles */}
-            <div className="absolute top-4 right-4 opacity-20">
+            <div className="absolute top-4 right-4 opacity-20 pointer-events-none">
               <div className="w-16 h-16 rounded-full border-4 border-white"></div>
             </div>
-            <div className="absolute top-8 right-8 opacity-10">
+            <div className="absolute top-8 right-8 opacity-10 pointer-events-none">
               <div className="w-12 h-12 rounded-full border-4 border-white"></div>
             </div>
-            
+
             {/* Actions */}
-            <div className="absolute top-3 right-3 flex gap-2 z-10">
+            <div className="absolute top-3 right-3 flex gap-2 z-50">
               <button
                 onClick={(e) => {
                   e.stopPropagation()
