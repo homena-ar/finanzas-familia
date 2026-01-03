@@ -56,6 +56,9 @@ export default function AhorrosPage() {
   const [editForm, setEditForm] = useState({ monto: '', descripcion: '' })
   const [filterFecha, setFilterFecha] = useState('')
   const [showChart, setShowChart] = useState(false)
+  const [movimientoToDelete, setMovimientoToDelete] = useState<any>(null)
+  const [showDeleteAllModal, setShowDeleteAllModal] = useState(false)
+  const [deleteAllConfirmText, setDeleteAllConfirmText] = useState('')
 
   useEffect(() => {
     fetchDolar()
@@ -170,6 +173,24 @@ export default function AhorrosPage() {
 
     setEditingMovimiento(null)
     setEditForm({ monto: '', descripcion: '' })
+  }
+
+  const handleDeleteMovimiento = async () => {
+    if (!movimientoToDelete) return
+    await deleteMovimiento(movimientoToDelete.id)
+    setMovimientoToDelete(null)
+  }
+
+  const handleDeleteAll = async () => {
+    const movimientosToDelete = movimientos.filter(m => m.tipo === currentTipo)
+
+    for (const m of movimientosToDelete) {
+      await deleteMovimiento(m.id)
+    }
+
+    setShowDeleteAllModal(false)
+    setDeleteAllConfirmText('')
+    setShowMovimientosModal(false)
   }
 
   const exportToExcel = () => {
@@ -688,24 +709,35 @@ export default function AhorrosPage() {
                 </button>
               </div>
             </div>
-            <div className="p-4 border-b border-slate-200">
-              <label className="label text-xs">Filtrar por mes</label>
-              <div className="flex gap-2">
-                <input
-                  type="month"
-                  className="input text-sm"
-                  value={filterFecha}
-                  onChange={e => setFilterFecha(e.target.value)}
-                />
-                {filterFecha && (
-                  <button
-                    onClick={() => setFilterFecha('')}
-                    className="btn btn-secondary text-sm"
-                  >
-                    Limpiar
-                  </button>
-                )}
+            <div className="p-4 border-b border-slate-200 space-y-3">
+              <div>
+                <label className="label text-xs">Filtrar por mes</label>
+                <div className="flex gap-2">
+                  <input
+                    type="month"
+                    className="input text-sm"
+                    value={filterFecha}
+                    onChange={e => setFilterFecha(e.target.value)}
+                  />
+                  {filterFecha && (
+                    <button
+                      onClick={() => setFilterFecha('')}
+                      className="btn btn-secondary text-sm"
+                    >
+                      Limpiar
+                    </button>
+                  )}
+                </div>
               </div>
+              {movimientos.filter(m => m.tipo === currentTipo).length > 0 && (
+                <button
+                  onClick={() => setShowDeleteAllModal(true)}
+                  className="btn btn-danger text-sm w-full justify-center"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Eliminar todos los movimientos
+                </button>
+              )}
             </div>
             <div className="p-4 max-h-96 overflow-y-auto">
               <div className="space-y-2">
@@ -724,8 +756,8 @@ export default function AhorrosPage() {
                       <div className="text-sm font-medium">{new Date(m.fecha).toLocaleDateString('es-AR', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</div>
                       {m.descripcion && <div className="text-xs text-slate-600 mt-1">{m.descripcion}</div>}
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className={`font-bold ${m.monto > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                    <div className="flex items-center gap-2">
+                      <span className={`font-bold mr-2 ${m.monto > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                         {m.monto > 0 ? '+' : ''}{formatMoney(m.monto, currentTipo === 'usd' ? 'USD' : 'ARS')}
                       </span>
                       <button
@@ -736,19 +768,19 @@ export default function AhorrosPage() {
                             descripcion: m.descripcion || ''
                           })
                         }}
-                        className="p-2 hover:bg-blue-50 rounded-lg text-blue-500"
+                        className="flex items-center gap-1 px-3 py-2 hover:bg-blue-50 rounded-lg text-blue-600 transition-colors"
+                        title="Editar movimiento"
                       >
                         <Edit2 className="w-4 h-4" />
+                        <span className="text-xs font-medium hidden sm:inline">Editar</span>
                       </button>
                       <button
-                        onClick={() => {
-                          if (confirm('¿Eliminar este movimiento?')) {
-                            deleteMovimiento(m.id)
-                          }
-                        }}
-                        className="p-2 hover:bg-red-50 rounded-lg text-red-500"
+                        onClick={() => setMovimientoToDelete(m)}
+                        className="flex items-center gap-1 px-3 py-2 hover:bg-red-50 rounded-lg text-red-600 transition-colors"
+                        title="Eliminar movimiento"
                       >
                         <Trash2 className="w-4 h-4" />
+                        <span className="text-xs font-medium hidden sm:inline">Borrar</span>
                       </button>
                     </div>
                   </div>
@@ -799,6 +831,102 @@ export default function AhorrosPage() {
               <button onClick={handleSaveEditMovimiento} className="btn btn-primary w-full justify-center">
                 Guardar Cambios
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Confirmación de Eliminación Individual */}
+      {movimientoToDelete && (
+        <div className="modal-overlay" onClick={() => setMovimientoToDelete(null)}>
+          <div className="modal max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="p-6 text-center">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                <Trash2 className="h-6 w-6 text-red-600" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900 mb-2">
+                ¿Eliminar movimiento?
+              </h3>
+              <p className="text-sm text-slate-500 mb-4">
+                Se eliminará el movimiento de <strong>{formatMoney(Math.abs(movimientoToDelete.monto), movimientoToDelete.tipo === 'usd' ? 'USD' : 'ARS')}</strong> del {new Date(movimientoToDelete.fecha).toLocaleDateString('es-AR')}.
+              </p>
+              {movimientoToDelete.descripcion && (
+                <p className="text-sm text-slate-600 mb-4 italic">"{movimientoToDelete.descripcion}"</p>
+              )}
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                <p className="text-xs text-amber-800">
+                  ⚠️ Esta acción actualizará tu patrimonio automáticamente
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setMovimientoToDelete(null)}
+                  className="btn btn-secondary flex-1 justify-center"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleDeleteMovimiento}
+                  className="btn btn-danger flex-1 justify-center"
+                >
+                  Eliminar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Confirmación de Eliminar Todos */}
+      {showDeleteAllModal && (
+        <div className="modal-overlay" onClick={() => { setShowDeleteAllModal(false); setDeleteAllConfirmText('') }}>
+          <div className="modal max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="p-6">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                <Trash2 className="h-6 w-6 text-red-600" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900 mb-2 text-center">
+                ⚠️ Eliminar TODOS los movimientos
+              </h3>
+              <p className="text-sm text-slate-500 mb-4 text-center">
+                Estás por eliminar <strong>{movimientos.filter(m => m.tipo === currentTipo).length} movimientos</strong> de {currentTipo === 'pesos' ? 'Pesos' : 'Dólares'}.
+              </p>
+              <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 mb-4">
+                <p className="text-sm text-red-800 font-semibold mb-2">
+                  🚨 Esta acción NO se puede deshacer
+                </p>
+                <p className="text-xs text-red-700">
+                  Tu patrimonio será actualizado automáticamente y se eliminarán todos los registros históricos.
+                </p>
+              </div>
+              <div className="mb-4">
+                <label className="label text-sm font-semibold">
+                  Para confirmar, escribe: <span className="text-red-600">ELIMINAR TODO</span>
+                </label>
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="Escribe aquí..."
+                  value={deleteAllConfirmText}
+                  onChange={e => setDeleteAllConfirmText(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setShowDeleteAllModal(false); setDeleteAllConfirmText('') }}
+                  className="btn btn-secondary flex-1 justify-center"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleDeleteAll}
+                  disabled={deleteAllConfirmText !== 'ELIMINAR TODO'}
+                  className="btn btn-danger flex-1 justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Confirmar
+                </button>
+              </div>
             </div>
           </div>
         </div>
