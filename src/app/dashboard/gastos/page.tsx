@@ -25,6 +25,7 @@ export default function GastosPage() {
   const [editingGasto, setEditingGasto] = useState<Gasto | null>(null)
   const [editingImp, setEditingImp] = useState<any>(null)
   const [filters, setFilters] = useState({ search: '', tarjeta: '', moneda: '', tag: '', sort: 'monto-desc' })
+  const [gastoError, setGastoError] = useState('')
 
   // Apply filter from URL query params
   useEffect(() => {
@@ -92,10 +93,13 @@ export default function GastosPage() {
     console.log('🔵 [GastosPage] handleSaveGasto - form:', gastoForm)
     console.log('🔵 [GastosPage] handleSaveGasto - addGasto function:', typeof addGasto, addGasto)
 
+    // Validación
     if (!gastoForm.descripcion || !gastoForm.monto) {
       console.log('🔵 [GastosPage] handleSaveGasto - Validation failed, returning')
+      setGastoError('Descripción y monto son obligatorios')
       return
     }
+    setGastoError('')
 
     const fecha = new Date(gastoForm.fecha)
     const mesFacturacion = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`
@@ -159,6 +163,7 @@ export default function GastosPage() {
       moneda: 'ARS', cuotas: '1', fecha: new Date().toISOString().split('T')[0],
       es_fijo: false, tag_ids: [], pagado: false
     })
+    setGastoError('')
   }
 
   const resetImpForm = () => {
@@ -591,6 +596,13 @@ export default function GastosPage() {
                   )}
                 </div>
               </div>
+
+              {/* Error de validación */}
+              {gastoError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+                  ⚠️ {gastoError}
+                </div>
+              )}
 
               <button onClick={() => {
                 console.log('🔵 [GastosPage] "Guardar Gasto" button CLICKED')
