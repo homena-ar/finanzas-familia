@@ -54,12 +54,16 @@ export default function GastosPage() {
 
   // Apply filters
   if (filters.search) {
-    gastosMes = gastosMes.filter(g => 
+    gastosMes = gastosMes.filter(g =>
       g.descripcion.toLowerCase().includes(filters.search.toLowerCase())
     )
   }
   if (filters.tarjeta) {
-    gastosMes = gastosMes.filter(g => g.tarjeta_id === filters.tarjeta)
+    if (filters.tarjeta === 'efectivo') {
+      gastosMes = gastosMes.filter(g => !g.tarjeta_id)
+    } else {
+      gastosMes = gastosMes.filter(g => g.tarjeta_id === filters.tarjeta)
+    }
   }
   if (filters.moneda) {
     gastosMes = gastosMes.filter(g => g.moneda === filters.moneda)

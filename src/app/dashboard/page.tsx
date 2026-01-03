@@ -23,6 +23,7 @@ export default function DashboardPage() {
   const [dolar, setDolar] = useState(1050)
   const [showEndingModal, setShowEndingModal] = useState(false)
   const [showMonthAlert, setShowMonthAlert] = useState(false)
+  const [hasShownInitialAlert, setHasShownInitialAlert] = useState(false)
 
   console.log('📄 [ResumenPage] Render - loading:', loading)
 
@@ -34,15 +35,18 @@ export default function DashboardPage() {
     fetchDolar().then(setDolar)
   }, [])
 
-  // Check if viewing a different month than current
+  // Check if viewing a different month than current (SOLO AL CARGAR)
   useEffect(() => {
-    const today = new Date()
-    const currentMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
+    if (!loading && !hasShownInitialAlert) {
+      const today = new Date()
+      const currentMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
 
-    if (monthKey !== currentMonthKey && !loading) {
-      setShowMonthAlert(true)
+      if (monthKey !== currentMonthKey) {
+        setShowMonthAlert(true)
+      }
+      setHasShownInitialAlert(true)
     }
-  }, [monthKey, loading])
+  }, [loading, hasShownInitialAlert, monthKey])
 
   // Export to Excel function
   const exportToExcel = () => {
@@ -117,9 +121,9 @@ export default function DashboardPage() {
   const gastosProximoMes = getGastosMes(nextMonthKey)
   const impuestosProximoMes = getImpuestosMes(nextMonthKey)
 
-  // Calcular totales MES ACTUAL
+  // Calcular totales MES ACTUAL (sin contar los pagados)
   let totalARS = 0, totalUSD = 0, totalFijos = 0, totalFijosUSD = 0
-  gastosMes.forEach(g => {
+  gastosMes.filter(g => !g.pagado).forEach(g => {
     const monto = g.cuotas > 1 ? g.monto / g.cuotas : g.monto
     if (g.moneda === 'USD') {
       totalUSD += monto
@@ -134,9 +138,9 @@ export default function DashboardPage() {
   const totalPagar = totalARS + totalImpuestos
   const usdEnPesos = totalUSD * dolar
 
-  // Calcular totales PRÓXIMO MES
+  // Calcular totales PRÓXIMO MES (sin contar los pagados)
   let proximoARS = 0, proximoUSD = 0, proximoFijosARS = 0, proximoFijosUSD = 0
-  gastosProximoMes.forEach(g => {
+  gastosProximoMes.filter(g => !g.pagado).forEach(g => {
     const monto = g.cuotas > 1 ? g.monto / g.cuotas : g.monto
     if (g.moneda === 'USD') {
       proximoUSD += monto
@@ -148,9 +152,9 @@ export default function DashboardPage() {
   })
   const proximoImpuestos = impuestosProximoMes.reduce((s, i) => s + i.monto, 0)
 
-  // GASTOS QUE TERMINAN ESTE MES (no están en próximo mes, excluyendo fijos)
+  // GASTOS QUE TERMINAN ESTE MES (no están en próximo mes, excluyendo fijos y pagados)
   const gastosTerminan = gastosMes.filter(g => {
-    if (g.es_fijo) return false
+    if (g.es_fijo || g.pagado) return false
     return !gastosProximoMes.some(gp => gp.id === g.id)
   })
 
@@ -220,9 +224,9 @@ export default function DashboardPage() {
     }]
   }
 
-  // Top 5 gastos
+  // Top 5 gastos (sin contar pagados)
   const topGastos = [...gastosMes]
-    .filter(g => g.moneda === 'ARS')
+    .filter(g => g.moneda === 'ARS' && !g.pagado)
     .sort((a, b) => {
       const montoA = a.cuotas > 1 ? a.monto / a.cuotas : a.monto
       const montoB = b.cuotas > 1 ? b.monto / b.cuotas : b.monto
@@ -481,7 +485,7 @@ export default function DashboardPage() {
             <tbody>
               {/* Gastos en efectivo */}
               {(() => {
-                const gEfectivo = gastosMes.filter(g => !g.tarjeta_id)
+                const gEfectivo = gastosMes.filter(g => !g.tarjeta_id && !g.pagado)
                 const iEfectivo = impuestosMes.filter(i => !i.tarjeta_id)
                 let efectivoARS = 0, efectivoUSD = 0
                 gEfectivo.forEach(g => {
@@ -493,7 +497,10 @@ export default function DashboardPage() {
 
                 if (gEfectivo.length > 0 || iEfectivo.length > 0) {
                   return (
-                    <tr className="border-b border-slate-100 hover:bg-emerald-50 cursor-pointer transition-colors">
+                    <tr
+                      onClick={() => router.push(`/dashboard/gastos?tarjeta=efectivo&mes=${monthKey}`)}
+                      className="border-b border-slate-100 hover:bg-emerald-50 cursor-pointer transition-colors"
+                    >
                       <td className="p-4">
                         <span className="tag bg-emerald-100 text-emerald-700">💵 Efectivo</span>
                       </td>
@@ -508,7 +515,7 @@ export default function DashboardPage() {
 
               {/* Tarjetas */}
               {tarjetas.length > 0 ? tarjetas.map(t => {
-                const gT = gastosMes.filter(g => g.tarjeta_id === t.id)
+                const gT = gastosMes.filter(g => g.tarjeta_id === t.id && !g.pagado)
                 const iT = impuestosMes.filter(i => i.tarjeta_id === t.id)
                 let cARS = 0, cUSD = 0
                 gT.forEach(g => {
