@@ -350,20 +350,20 @@ export default function DashboardPage() {
           <div className="grid grid-cols-2 gap-4 text-center">
             <div>
               <div className="text-xs text-slate-500 uppercase font-semibold">Este mes ({getMonthName(currentMonth).split(' ')[0]})</div>
-              <div className="text-xl font-bold mt-1">{formatMoney(totalActual)}</div>
-              <div className="text-xs text-emerald-600">{formatMoney(totalUSD, 'USD')}</div>
+              <div className="text-xl font-bold mt-1">{formatMoney(totalARS + totalImpuestos)}</div>
+              <div className="text-xs text-slate-500">(+ {formatMoney(totalUSD, 'USD')} ≈ {formatMoney(usdEnPesos)})</div>
             </div>
             <div>
               <div className="text-xs text-slate-500 uppercase font-semibold">Próximo ({getMonthName(nextMonth).split(' ')[0]})</div>
-              <div className="text-xl font-bold mt-1">{formatMoney(totalProximo)}</div>
-              <div className="text-xs text-emerald-600">{formatMoney(proximoUSD, 'USD')}</div>
+              <div className="text-xl font-bold mt-1">{formatMoney(proximoARS + proximoImpuestos)}</div>
+              <div className="text-xs text-slate-500">(+ {formatMoney(proximoUSD, 'USD')} ≈ {formatMoney(proximoUSD * dolar)})</div>
             </div>
           </div>
           <div className="text-center text-sm text-slate-500 mt-3 pt-3 border-t border-slate-200">
-            {diferenciaTotal > 0 
-              ? `🎉 Vas a gastar ${formatMoney(diferenciaTotal)} menos` 
-              : diferenciaTotal < 0 
-                ? `⚠️ Vas a gastar ${formatMoney(Math.abs(diferenciaTotal))} más`
+            {diferenciaTotal > 0
+              ? `🎉 Vas a gastar ${formatMoney(diferenciaTotal)} menos (total en ARS)`
+              : diferenciaTotal < 0
+                ? `⚠️ Vas a gastar ${formatMoney(Math.abs(diferenciaTotal))} más (total en ARS)`
                 : '➡️ Mismo gasto proyectado'
             }
           </div>

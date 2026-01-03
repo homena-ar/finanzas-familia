@@ -116,14 +116,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const movimientosSnap = await getDocs(movimientosQuery)
       const movimientosData = movimientosSnap.docs.map(doc => {
         const data = doc.data()
+        let fecha: string
+        if (data.created_at instanceof Timestamp) {
+          fecha = data.created_at.toDate().toISOString()
+        } else if (typeof data.created_at === 'string') {
+          fecha = data.created_at
+        } else {
+          // Fallback para documentos sin fecha válida
+          fecha = new Date().toISOString()
+        }
         return {
           id: doc.id,
           tipo: data.tipo,
           monto: data.monto,
           user_id: data.user_id,
-          fecha: data.created_at instanceof Timestamp
-            ? data.created_at.toDate().toISOString()
-            : data.created_at
+          fecha
         }
       }) as MovimientoAhorro[]
 
@@ -375,7 +382,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       tipo,
       monto,
       user_id: user.uid,
-      created_at: serverTimestamp()
+      created_at: new Date().toISOString()
     }
 
     console.log('💵 [Firebase addMovimiento] Inserting:', insertData)
