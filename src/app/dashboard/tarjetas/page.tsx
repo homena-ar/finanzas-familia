@@ -193,10 +193,22 @@ export default function TarjetasPage() {
             
             {/* Actions */}
             <div className="absolute top-3 right-3 flex gap-1 z-10">
-              <button onClick={() => openEdit(t)} className="w-8 h-8 bg-white/20 backdrop-blur rounded-lg flex items-center justify-center hover:bg-white/30 transition">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  openEdit(t)
+                }}
+                className="w-8 h-8 bg-white/20 backdrop-blur rounded-lg flex items-center justify-center hover:bg-white/30 transition"
+              >
                 <Edit2 className="w-4 h-4" />
               </button>
-              <button onClick={() => handleDelete(t.id)} className="w-8 h-8 bg-white/20 backdrop-blur rounded-lg flex items-center justify-center hover:bg-white/30 transition">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleDelete(t.id)
+                }}
+                className="w-8 h-8 bg-white/20 backdrop-blur rounded-lg flex items-center justify-center hover:bg-white/30 transition"
+              >
                 <Trash2 className="w-4 h-4" />
               </button>
             </div>

@@ -9,6 +9,7 @@ import { Download, TrendingUp, CreditCard, Receipt, Pin, DollarSign, Calendar, X
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
 import { Doughnut } from 'react-chartjs-2'
 import { AlertModal } from '@/components/Modal'
+import * as XLSX from 'xlsx'
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 
@@ -42,6 +43,58 @@ export default function DashboardPage() {
       setShowMonthAlert(true)
     }
   }, [monthKey, loading])
+
+  // Export to Excel function
+  const exportToExcel = () => {
+    // Prepare gastos data
+    const gastosData = gastosMes.map(g => {
+      const monto = g.cuotas > 1 ? g.monto / g.cuotas : g.monto
+      return {
+        'Fecha': g.fecha,
+        'Descripción': g.descripcion,
+        'Categoría': categoriaMap[g.categoria_id || '']?.nombre || 'Sin categoría',
+        'Tarjeta': tarjetaMap[g.tarjeta_id || '']?.nombre || 'Efectivo',
+        'Monto': monto,
+        'Moneda': g.moneda,
+        'Cuotas': g.cuotas > 1 ? `${g.cuota_actual || 1}/${g.cuotas}` : '-',
+        'Fijo': g.es_fijo ? 'Sí' : 'No',
+        'Pagado': g.pagado ? 'Sí' : 'No'
+      }
+    })
+
+    // Prepare impuestos data
+    const impuestosData = impuestosMes.map(i => ({
+      'Descripción': i.descripcion,
+      'Tarjeta': tarjetaMap[i.tarjeta_id || '']?.nombre || 'Efectivo',
+      'Monto': i.monto,
+      'Mes': i.mes
+    }))
+
+    // Create workbook
+    const wb = XLSX.utils.book_new()
+
+    // Add Gastos sheet
+    const wsGastos = XLSX.utils.json_to_sheet(gastosData)
+    XLSX.utils.book_append_sheet(wb, wsGastos, 'Gastos')
+
+    // Add Impuestos sheet
+    const wsImpuestos = XLSX.utils.json_to_sheet(impuestosData)
+    XLSX.utils.book_append_sheet(wb, wsImpuestos, 'Impuestos')
+
+    // Add Summary sheet
+    const summaryData = [
+      { 'Concepto': 'Gastos ARS', 'Monto': totalARS },
+      { 'Concepto': 'Gastos USD', 'Monto': totalUSD },
+      { 'Concepto': 'Impuestos', 'Monto': totalImpuestos },
+      { 'Concepto': 'Total a Pagar (ARS)', 'Monto': totalPagar },
+      { 'Concepto': 'Dólar', 'Monto': dolar }
+    ]
+    const wsSummary = XLSX.utils.json_to_sheet(summaryData)
+    XLSX.utils.book_append_sheet(wb, wsSummary, 'Resumen')
+
+    // Download
+    XLSX.writeFile(wb, `Gastos_${getMonthName(currentMonth).replace(' ', '_')}.xlsx`)
+  }
 
   if (loading) {
     console.log('📄 [ResumenPage] SHOWING LOADING SPINNER - loading is TRUE')
@@ -185,7 +238,7 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold">Resumen</h1>
           <p className="text-slate-500">Vista general de {getMonthName(currentMonth)}</p>
         </div>
-        <button className="btn btn-success">
+        <button onClick={exportToExcel} className="btn btn-success">
           <Download className="w-4 h-4" />
           Exportar Excel
         </button>
