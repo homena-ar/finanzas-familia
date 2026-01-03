@@ -904,7 +904,12 @@ export default function AhorrosPage() {
 
       {/* Modal de Confirmación de Eliminar Todos */}
       {showDeleteAllModal && (
-        <div className="modal-overlay" onClick={() => !isDeleting && { setShowDeleteAllModal(false); setDeleteAllConfirmText('') }}>
+        <div className="modal-overlay" onClick={() => {
+  if (!isDeleting) {
+    setShowDeleteAllModal(false)
+    setDeleteAllConfirmText('')
+  }
+}}>
           <div className="modal max-w-md" onClick={e => e.stopPropagation()}>
             <div className="p-6">
               <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
