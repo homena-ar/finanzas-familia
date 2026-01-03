@@ -59,6 +59,8 @@ export default function AhorrosPage() {
   const [movimientoToDelete, setMovimientoToDelete] = useState<any>(null)
   const [showDeleteAllModal, setShowDeleteAllModal] = useState(false)
   const [deleteAllConfirmText, setDeleteAllConfirmText] = useState('')
+  const [deleteProgress, setDeleteProgress] = useState(0)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
     fetchDolar()
@@ -190,6 +192,10 @@ export default function AhorrosPage() {
 
   const handleDeleteAll = async () => {
     const movimientosToDelete = movimientos.filter(m => m.tipo === currentTipo)
+    const total = movimientosToDelete.length
+
+    setIsDeleting(true)
+    setDeleteProgress(0)
 
     // Calcular el total a restar
     const totalToSubtract = movimientosToDelete.reduce((sum, m) => sum + m.monto, 0)
@@ -200,11 +206,17 @@ export default function AhorrosPage() {
     // Actualizar el patrimonio
     await updateProfile({ [field]: newValue })
 
-    // Eliminar todos los movimientos
-    for (const m of movimientosToDelete) {
-      await deleteMovimiento(m.id)
+    // Eliminar todos los movimientos con progreso
+    for (let i = 0; i < movimientosToDelete.length; i++) {
+      await deleteMovimiento(movimientosToDelete[i].id)
+      setDeleteProgress(Math.round(((i + 1) / total) * 100))
     }
 
+    // Esperar un poco para que se vea el 100%
+    await new Promise(resolve => setTimeout(resolve, 500))
+
+    setIsDeleting(false)
+    setDeleteProgress(0)
     setShowDeleteAllModal(false)
     setDeleteAllConfirmText('')
     setShowMovimientosModal(false)
@@ -442,14 +454,12 @@ export default function AhorrosPage() {
           <div className="mt-4 pt-4 border-t border-slate-200">
             <div className="flex justify-between items-center mb-2">
               <span className="text-xs text-slate-500 font-semibold">HISTORIAL</span>
-              {movimientos.filter(m => m.tipo === 'pesos').length > 3 && (
-                <button
-                  onClick={() => { setCurrentTipo('pesos'); setShowMovimientosModal(true) }}
-                  className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
-                >
-                  Ver todos
-                </button>
-              )}
+              <button
+                onClick={() => { setCurrentTipo('pesos'); setShowMovimientosModal(true) }}
+                className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+              >
+                {movimientos.filter(m => m.tipo === 'pesos').length > 3 ? 'Ver todos' : 'Ver historial'}
+              </button>
             </div>
             <div className="max-h-32 overflow-y-auto space-y-1">
               {movimientos.filter(m => m.tipo === 'pesos').length > 0 ? (
@@ -512,14 +522,12 @@ export default function AhorrosPage() {
           <div className="mt-4 pt-4 border-t border-slate-200">
             <div className="flex justify-between items-center mb-2">
               <span className="text-xs text-slate-500 font-semibold">HISTORIAL</span>
-              {movimientos.filter(m => m.tipo === 'usd').length > 3 && (
-                <button
-                  onClick={() => { setCurrentTipo('usd'); setShowMovimientosModal(true) }}
-                  className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
-                >
-                  Ver todos
-                </button>
-              )}
+              <button
+                onClick={() => { setCurrentTipo('usd'); setShowMovimientosModal(true) }}
+                className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+              >
+                {movimientos.filter(m => m.tipo === 'usd').length > 3 ? 'Ver todos' : 'Ver historial'}
+              </button>
             </div>
             <div className="max-h-32 overflow-y-auto space-y-1">
               {movimientos.filter(m => m.tipo === 'usd').length > 0 ? (
@@ -896,54 +904,78 @@ export default function AhorrosPage() {
 
       {/* Modal de Confirmación de Eliminar Todos */}
       {showDeleteAllModal && (
-        <div className="modal-overlay" onClick={() => { setShowDeleteAllModal(false); setDeleteAllConfirmText('') }}>
+        <div className="modal-overlay" onClick={() => !isDeleting && { setShowDeleteAllModal(false); setDeleteAllConfirmText('') }}>
           <div className="modal max-w-md" onClick={e => e.stopPropagation()}>
             <div className="p-6">
               <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
                 <Trash2 className="h-6 w-6 text-red-600" />
               </div>
-              <h3 className="text-lg font-bold text-slate-900 mb-2 text-center">
-                ⚠️ Eliminar TODOS los movimientos
-              </h3>
-              <p className="text-sm text-slate-500 mb-4 text-center">
-                Estás por eliminar <strong>{movimientos.filter(m => m.tipo === currentTipo).length} movimientos</strong> de {currentTipo === 'pesos' ? 'Pesos' : 'Dólares'}.
-              </p>
-              <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 mb-4">
-                <p className="text-sm text-red-800 font-semibold mb-2">
-                  🚨 Esta acción NO se puede deshacer
-                </p>
-                <p className="text-xs text-red-700">
-                  Tu patrimonio será actualizado automáticamente y se eliminarán todos los registros históricos.
-                </p>
-              </div>
-              <div className="mb-4">
-                <label className="label text-sm font-semibold">
-                  Para confirmar, escribe: <span className="text-red-600">ELIMINAR TODO</span>
-                </label>
-                <input
-                  type="text"
-                  className="input"
-                  placeholder="Escribe aquí..."
-                  value={deleteAllConfirmText}
-                  onChange={e => setDeleteAllConfirmText(e.target.value)}
-                  autoFocus
-                />
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => { setShowDeleteAllModal(false); setDeleteAllConfirmText('') }}
-                  className="btn btn-secondary flex-1 justify-center"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleDeleteAll}
-                  disabled={deleteAllConfirmText !== 'ELIMINAR TODO'}
-                  className="btn btn-danger flex-1 justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Confirmar
-                </button>
-              </div>
+
+              {isDeleting ? (
+                <>
+                  <h3 className="text-lg font-bold text-slate-900 mb-2 text-center">
+                    Eliminando movimientos...
+                  </h3>
+                  <div className="mt-6 mb-4">
+                    <div className="w-full bg-slate-200 rounded-full h-4 overflow-hidden">
+                      <div
+                        className="bg-red-600 h-full transition-all duration-300 rounded-full flex items-center justify-center"
+                        style={{ width: `${deleteProgress}%` }}
+                      >
+                        <span className="text-xs font-bold text-white">{deleteProgress}%</span>
+                      </div>
+                    </div>
+                    <p className="text-sm text-slate-600 text-center mt-3">
+                      Por favor espera...
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h3 className="text-lg font-bold text-slate-900 mb-2 text-center">
+                    ⚠️ Eliminar TODOS los movimientos
+                  </h3>
+                  <p className="text-sm text-slate-500 mb-4 text-center">
+                    Estás por eliminar <strong>{movimientos.filter(m => m.tipo === currentTipo).length} movimientos</strong> de {currentTipo === 'pesos' ? 'Pesos' : 'Dólares'}.
+                  </p>
+                  <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 mb-4">
+                    <p className="text-sm text-red-800 font-semibold mb-2">
+                      🚨 Esta acción NO se puede deshacer
+                    </p>
+                    <p className="text-xs text-red-700">
+                      Tu patrimonio será actualizado automáticamente y se eliminarán todos los registros históricos.
+                    </p>
+                  </div>
+                  <div className="mb-4">
+                    <label className="label text-sm font-semibold">
+                      Para confirmar, escribe: <span className="text-red-600">ELIMINAR TODO</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="input"
+                      placeholder="Escribe aquí..."
+                      value={deleteAllConfirmText}
+                      onChange={e => setDeleteAllConfirmText(e.target.value)}
+                      autoFocus
+                    />
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => { setShowDeleteAllModal(false); setDeleteAllConfirmText('') }}
+                      className="btn btn-secondary flex-1 justify-center"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={handleDeleteAll}
+                      disabled={deleteAllConfirmText !== 'ELIMINAR TODO'}
+                      className="btn btn-danger flex-1 justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Confirmar
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>

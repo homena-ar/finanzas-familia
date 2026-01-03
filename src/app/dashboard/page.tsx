@@ -37,21 +37,18 @@ export default function DashboardPage() {
       .catch(err => console.error('Error al obtener cotización del dólar:', err))
   }, [])
 
-  // Check if viewing a different month than current (SOLO AL CARGAR UNA VEZ POR SESIÓN)
+  // Check if viewing a different month than current (AL INICIAR CADA SESIÓN)
   useEffect(() => {
     if (!loading && !hasShownInitialAlert) {
-      // Check if we already showed the alert in this session
-      const alertShownThisSession = sessionStorage.getItem('monthAlertShown')
+      const today = new Date()
+      const currentMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
 
-      if (!alertShownThisSession) {
-        const today = new Date()
-        const currentMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
-
-        if (monthKey !== currentMonthKey) {
-          setShowMonthAlert(true)
-          sessionStorage.setItem('monthAlertShown', 'true')
-        }
+      // Siempre mostrar si el mes guardado no es el actual
+      if (monthKey !== currentMonthKey) {
+        setShowMonthAlert(true)
+        sessionStorage.setItem('monthAlertShown', 'true')
       }
+
       setHasShownInitialAlert(true)
     }
   }, [loading, hasShownInitialAlert, monthKey])
